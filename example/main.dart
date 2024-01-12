@@ -18,11 +18,8 @@ class _ZoomListViewExampleState extends State<ZoomListViewExample> {
           controller: controller,
           itemCount: 100,
           itemBuilder: (context, index) {
-            return Center(
-                child: Text("text $index")
-            );
-          }
-      ),
+            return Center(child: Text("text $index"));
+          }),
     );
   }
 }
