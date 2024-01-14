@@ -194,7 +194,7 @@ class _ZoomViewState extends State<ZoomView> {
           if (details.pointerCount > 1) {
             double oldHeight = height * scale;
             double oldWidth = width * scale;
-            if (lastScale / details.scale <= 1.0) {
+            if (lastScale / details.scale <= 1.0 || 1==1) {
               //print(scale);
               setState(() {
                 scale = lastScale / details.scale;
@@ -256,7 +256,6 @@ class _ZoomViewState extends State<ZoomView> {
             height: height,
             width: width,
             child: FittedBox(
-              alignment: const Alignment(1.0, 1.0),
               fit: BoxFit.fill,
               child: SizedBox(
                 height: height * scale,
