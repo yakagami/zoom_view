@@ -243,10 +243,10 @@ class _ZoomViewState extends State<ZoomView> {
             primaryVelocity: velocity.dy,
           );
           DragEndDetails hEndDetails = DragEndDetails(
-            velocity: const Velocity(
-              pixelsPerSecond: Offset(0.0, 0.0),
+            velocity: Velocity(
+              pixelsPerSecond: Offset(velocity.dx, 0.0),
             ),
-            primaryVelocity: 0.0,
+            primaryVelocity: velocity.dx,
           );
           handleDragEnd(endDetails);
           hHandleDragEnd(hEndDetails);
@@ -261,12 +261,16 @@ class _ZoomViewState extends State<ZoomView> {
               child: SizedBox(
                 height: height * scale,
                 width: width * scale,
-                child: ListView(
-                  controller: horizontalController,
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    SizedBox(width: width, child: widget.child),
-                  ],
+                child: ScrollConfiguration(
+                  behavior: const ScrollBehavior().copyWith(overscroll: false),
+                  child: ListView(
+                    physics: const ClampingScrollPhysics(),
+                    controller: horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      SizedBox(width: width, child: widget.child),
+                    ],
+                  ),
                 ),
               ),
             ),
