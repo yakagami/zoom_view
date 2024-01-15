@@ -251,25 +251,23 @@ class _ZoomViewState extends State<ZoomView> {
           handleDragEnd(endDetails);
           hHandleDragEnd(hEndDetails);
         },
-        child: AbsorbPointer(
-          child: SizedBox(
-            height: height,
-            width: width,
-            child: FittedBox(
-              fit: BoxFit.fill,
-              child: SizedBox(
-                height: height * scale,
-                width: width * scale,
-                child: ScrollConfiguration(
-                  behavior: const ScrollBehavior().copyWith(overscroll: false),
-                  child: ListView(
-                    physics: const ClampingScrollPhysics(),
-                    controller: horizontalController,
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      SizedBox(width: width, child: widget.child),
-                    ],
-                  ),
+        child: SizedBox(
+          height: height,
+          width: width,
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: SizedBox(
+              height: height * scale,
+              width: width * scale,
+              child: ScrollConfiguration(
+                behavior: const ScrollBehavior().copyWith(overscroll: false, dragDevices: <PointerDeviceKind>{}),
+                child: ListView(
+                  physics: const ClampingScrollPhysics(),
+                  controller: horizontalController,
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    SizedBox(width: width, child: widget.child),
+                  ],
                 ),
               ),
             ),

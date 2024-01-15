@@ -4,10 +4,6 @@ Widget that allows both zooming and scrolling a `ListView` or other `Scrollable`
 
 Scroll a ListView while it is zoomed in with fling velocity
 
-## Important Note
-
-Currently, due to the way this package is implemented, you can't click on buttons that are in the ListView. If you need to know the exact item in a list that was clicked, this package won't work for you. If you just need to listen for any clicks without regard to specific items, use GestureDetector on the `ZoomView`.
-
 ## Usage
 
 ### Using ListView
