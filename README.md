@@ -4,7 +4,7 @@ Widget that allows both zooming and scrolling a `ListView` or other `Scrollable`
 
 Scroll a ListView while it is zoomed in with fling velocity
 
-![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)\
+![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)
 
 ## Usage
 
