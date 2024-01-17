@@ -194,7 +194,7 @@ class _ZoomViewState extends State<ZoomView> {
           if (details.pointerCount > 1) {
             double oldHeight = height * scale;
             double oldWidth = width * scale;
-            if (lastScale / details.scale <= 1.0) {
+            if (lastScale / details.scale <= 1.0 || 1 == 1) {
               //print(scale);
               setState(() {
                 scale = lastScale / details.scale;
@@ -251,23 +251,30 @@ class _ZoomViewState extends State<ZoomView> {
           handleDragEnd(endDetails);
           hHandleDragEnd(hEndDetails);
         },
-        child: SizedBox(
-          height: height,
-          width: width,
-          child: FittedBox(
-            fit: BoxFit.fill,
-            child: SizedBox(
-              height: height * scale,
-              width: width * scale,
-              child: ScrollConfiguration(
-                behavior: const ScrollBehavior().copyWith(overscroll: false, dragDevices: <PointerDeviceKind>{}),
-                child: ListView(
-                  physics: const ClampingScrollPhysics(),
-                  controller: horizontalController,
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    SizedBox(width: width, child: widget.child),
-                  ],
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: Container(
+            color: Colors.red,
+            height: height * scale,
+            width: width * scale,
+            child: ScrollConfiguration(
+              behavior: const ScrollBehavior().copyWith(
+                  overscroll: false, dragDevices: <PointerDeviceKind>{}),
+              child: Container(
+                color: Colors.blue,
+                child: Center(
+                  child: ListView(
+                    physics: const ClampingScrollPhysics(),
+                    controller: horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      Center(
+                        child: Container(
+                            color: Colors.orange,
+                            child: SizedBox(width: width, child: widget.child)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
