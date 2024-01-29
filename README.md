@@ -4,7 +4,7 @@ Widget that allows both zooming and scrolling a `ListView` or other `Scrollable`
 
 ## Features
 
-Scroll a ListView while it is zoomed in with fling velocity 
+Scroll a ListView while it is zoomed in with fling velocity
 
 ## Usage
 
