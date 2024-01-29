@@ -82,5 +82,5 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 ```
 
-Note that here the controller is given both to the ZoomView and the list. Other Scrollables that use ScrollController should work as well.
+Note that here the controller is given both to the ZoomView and the List. Other Scrollables that use ScrollController should work as well.
 
