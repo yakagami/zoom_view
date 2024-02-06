@@ -194,7 +194,7 @@ class _ZoomViewState extends State<ZoomView> {
           if (details.pointerCount > 1) {
             double oldHeight = height * scale;
             double oldWidth = width * scale;
-            if (lastScale / details.scale <= 1.0 || 1 == 1) {
+            if (lastScale / details.scale <= 1.0) {
               //print(scale);
               setState(() {
                 scale = lastScale / details.scale;
