@@ -253,29 +253,19 @@ class _ZoomViewState extends State<ZoomView> {
         },
         child: FittedBox(
           fit: BoxFit.fill,
-          child: Container(
-            color: Colors.red,
-            height: height * scale,
-            width: width * scale,
-            child: ScrollConfiguration(
-              behavior: const ScrollBehavior().copyWith(
-                  overscroll: false, dragDevices: <PointerDeviceKind>{}),
-              child: Container(
-                color: Colors.blue,
-                child: Center(
-                  child: ListView(
-                    physics: const ClampingScrollPhysics(),
-                    controller: horizontalController,
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      Center(
-                        child: Container(
-                            color: Colors.orange,
-                            child: SizedBox(width: width, child: widget.child)),
-                      ),
-                    ],
+          child: ScrollConfiguration(
+            behavior: const ScrollBehavior().copyWith(
+                overscroll: false, dragDevices: <PointerDeviceKind>{}),
+            child: Center(
+              child: ListView(
+                physics: const ClampingScrollPhysics(),
+                controller: horizontalController,
+                scrollDirection: Axis.horizontal,
+                children: [
+                  Center(
+                    child: SizedBox(width: width, child: widget.child),
                   ),
-                ),
+                ],
               ),
             ),
           ),
