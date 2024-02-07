@@ -256,15 +256,15 @@ class _ZoomViewState extends State<ZoomView> {
           child: ScrollConfiguration(
             behavior: const ScrollBehavior().copyWith(
                 overscroll: false, dragDevices: <PointerDeviceKind>{}),
-            child: Center(
+            child: SizedBox(
+              height: height * scale,
+              width: width * scale,
               child: ListView(
                 physics: const ClampingScrollPhysics(),
                 controller: horizontalController,
                 scrollDirection: Axis.horizontal,
                 children: [
-                  Center(
-                    child: SizedBox(width: width, child: widget.child),
-                  ),
+                  SizedBox(width: width, child: widget.child),
                 ],
               ),
             ),
