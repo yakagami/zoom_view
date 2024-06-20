@@ -82,5 +82,53 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 ```
 
-Note that here the controller is given both to the ZoomView and the List. Other Scrollables that use ScrollController should work as well.
+Note that here the controller is given both to the ZoomView and the List.
 
+
+### Using ScrollablePositionedList
+
+add this class:
+
+```dart
+
+class ScrollOffsetToScrollController extends ScrollController{
+  ScrollOffsetToScrollController({required this.scrollOffsetController});
+  final ScrollOffsetController scrollOffsetController;
+
+  @override
+  ScrollPosition get position => scrollOffsetController.position;
+
+  @override
+  double get offset => 0.0;
+
+  @override
+  void jumpTo(double value){
+    scrollOffsetController.jumpTo(value);
+  }
+}
+
+```
+
+Usage:
+
+```dart
+
+final ScrollOffsetController scrollOffsetController = ScrollOffsetController();
+
+Column(
+      children:[
+        Expanded(
+          child: ZoomView(
+            controller: ScrollOffsetToScrollController(
+                scrollOffsetController: scrollOffsetController,
+            ),
+            child: ScrollablePositionedList.builder(
+              scrollOffsetController : scrollOffsetController,
+              itemBuilder: (context, index) => Text('Item $index'),
+            ),
+          ),
+        )
+      ]
+    );
+
+```
