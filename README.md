@@ -115,20 +115,14 @@ Usage:
 
 final ScrollOffsetController scrollOffsetController = ScrollOffsetController();
 
-Column(
-      children:[
-        Expanded(
-          child: ZoomView(
-            controller: ScrollOffsetToScrollController(
-                scrollOffsetController: scrollOffsetController,
-            ),
-            child: ScrollablePositionedList.builder(
-              scrollOffsetController : scrollOffsetController,
-              itemBuilder: (context, index) => Text('Item $index'),
-            ),
-          ),
-        )
-      ]
-    );
+ZoomView(
+  controller: ScrollOffsetToScrollController(
+    scrollOffsetController: scrollOffsetController,
+  ),
+  child: ScrollablePositionedList.builder(
+    scrollOffsetController : scrollOffsetController,
+    itemBuilder: (context, index) => Text('Item $index'),
+  ),
+),
 
 ```
