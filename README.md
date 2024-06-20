@@ -85,44 +85,25 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 Note that here the controller is given both to the ZoomView and the List.
 
 
-### Using ScrollablePositionedList:
+### Using ScrollablePositionedList
 
-First add these classes:
+add this class:
 
 ```dart
 
 class ScrollOffsetToScrollController extends ScrollController{
-  ScrollOffsetToScrollController({required this.scrollOffsetController, required this.localOffset});
+  ScrollOffsetToScrollController({required this.scrollOffsetController});
   final ScrollOffsetController scrollOffsetController;
-  final double localOffset;
 
   @override
   ScrollPosition get position => scrollOffsetController.position;
 
   @override
-  double get offset => localOffset;
+  double get offset => 0.0;
 
   @override
   void jumpTo(double value){
     scrollOffsetController.jumpTo(value);
-  }
-}
-
-```
-
-```dart
-
-class ScrollSum {
-  final bool recordProgrammaticScrolls;
-  double totalScroll = 0.0;
-  final ScrollOffsetListener scrollOffsetListener;
-
-  ScrollSum({this.recordProgrammaticScrolls = true})
-      : scrollOffsetListener = ScrollOffsetListener.create(
-      recordProgrammaticScrolls: recordProgrammaticScrolls) {
-    scrollOffsetListener.changes.listen((event) {
-      totalScroll += event;
-    });
   }
 }
 
@@ -133,7 +114,6 @@ Usage:
 ```dart
 
 final ScrollOffsetController scrollOffsetController = ScrollOffsetController();
-final ScrollSum scrollSummer = ScrollSum();
 
 Column(
       children:[
@@ -141,11 +121,9 @@ Column(
           child: ZoomView(
             controller: ScrollOffsetToScrollController(
                 scrollOffsetController: scrollOffsetController,
-                localOffset: scrollSummer.totalScroll
             ),
             child: ScrollablePositionedList.builder(
               scrollOffsetController : scrollOffsetController,
-              scrollOffsetListener: scrollSummer.scrollOffsetListener,
               itemBuilder: (context, index) => Text('Item $index'),
             ),
           ),
