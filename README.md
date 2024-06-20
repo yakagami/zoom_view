@@ -82,5 +82,75 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 ```
 
-Note that here the controller is given both to the ZoomView and the List. Other Scrollables that use ScrollController should work as well.
+Note that here the controller is given both to the ZoomView and the List.
 
+
+### Using ScrollablePositionedList:
+
+First add these classes:
+
+```dart
+
+class ScrollOffsetToScrollController extends ScrollController{
+  ScrollOffsetToScrollController({required this.scrollOffsetController, required this.localOffset});
+  final ScrollOffsetController scrollOffsetController;
+  final double localOffset;
+
+  @override
+  ScrollPosition get position => scrollOffsetController.position;
+
+  @override
+  double get offset => localOffset;
+
+  @override
+  void jumpTo(double value){
+    scrollOffsetController.jumpTo(value);
+  }
+}
+
+```
+
+```dart
+
+class ScrollSum {
+  final bool recordProgrammaticScrolls;
+  double totalScroll = 0.0;
+  final ScrollOffsetListener scrollOffsetListener;
+
+  ScrollSum({this.recordProgrammaticScrolls = true})
+      : scrollOffsetListener = ScrollOffsetListener.create(
+      recordProgrammaticScrolls: recordProgrammaticScrolls) {
+    scrollOffsetListener.changes.listen((event) {
+      totalScroll += event;
+    });
+  }
+}
+
+```
+
+Usage:
+
+```dart
+
+final ScrollOffsetController scrollOffsetController = ScrollOffsetController();
+final ScrollSum scrollSummer = ScrollSum();
+
+Column(
+      children:[
+        Expanded(
+          child: ZoomView(
+            controller: ScrollOffsetToScrollController(
+                scrollOffsetController: scrollOffsetController,
+                localOffset: scrollSummer.totalScroll
+            ),
+            child: ScrollablePositionedList.builder(
+              scrollOffsetController : scrollOffsetController,
+              scrollOffsetListener: scrollSummer.scrollOffsetListener,
+              itemBuilder: (context, index) => Text('Item $index'),
+            ),
+          ),
+        )
+      ]
+    );
+
+```
