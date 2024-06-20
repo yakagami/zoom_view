@@ -85,7 +85,7 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 Note that here the controller is given both to the ZoomView and the List.
 
 
-### Using ScrollablePositionedList
+### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
 add this class:
 
