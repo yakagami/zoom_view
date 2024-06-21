@@ -79,7 +79,7 @@ class _ZoomViewState extends State<ZoomView> {
                       globalPosition: details.focalPoint,
                       kind: PointerDeviceKind.touch);
                   verticalTouchHandler.handleDragStart(dragDetails);
-                  horizontalTouchHandler.handleDragStart(dragDetails);
+                  horizontalTouchHandler.handleDragStart(hDragDetails);
                 } else {
                   distanceFromOffset = details.localFocalPoint.dy;
                   horizontalDistanceFromOffset = details.localFocalPoint.dx;
