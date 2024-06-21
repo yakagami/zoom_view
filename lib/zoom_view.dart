@@ -37,12 +37,11 @@ class ZoomView extends StatefulWidget {
 }
 
 class _ZoomViewState extends State<ZoomView> {
-
   @override
   void initState() {
     controller = widget.controller;
-    verticalTouchHandler = _TouchHandler(position: controller.position);
-    horizontalTouchHandler = _TouchHandler(position: horizontalController.position);
+    verticalTouchHandler = _TouchHandler(controller: controller);
+    horizontalTouchHandler = _TouchHandler(controller: horizontalController);
     super.initState();
   }
 
@@ -105,16 +104,17 @@ class _ZoomViewState extends State<ZoomView> {
                   controller.jumpTo(controller.offset +
                       (oldHeight - newHeight) /
                           (1 + focalPointDistanceFromBottomFactor));
-          
+
                   //horizontal offset
                   final double newWidth = width * scale;
                   horizontalController.jumpTo(horizontalController.offset +
                       (oldWidth - newWidth) /
                           (1 + horizontalFocalPointDistanceFromBottomFactor));
                 } else {
-                  final Duration currentTime =
-                      Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
-                  final double correctedDelta = details.focalPointDelta.dy * scale;
+                  final Duration currentTime = Duration(
+                      milliseconds: DateTime.now().millisecondsSinceEpoch);
+                  final double correctedDelta =
+                      details.focalPointDelta.dy * scale;
                   final Offset correctedOffset = details.focalPoint * scale;
                   tracker.addPosition(currentTime, correctedOffset);
                   final DragUpdateDetails verticalDetails = DragUpdateDetails(
@@ -178,10 +178,11 @@ class _ZoomViewState extends State<ZoomView> {
   }
 }
 
-class _TouchHandler{
-  final ScrollPosition position;
-  _TouchHandler({required this.position});
-  final GlobalKey<RawGestureDetectorState> _gestureDetectorKey = GlobalKey<RawGestureDetectorState>();
+class _TouchHandler {
+  final ScrollController controller;
+  _TouchHandler({required this.controller});
+  final GlobalKey<RawGestureDetectorState> _gestureDetectorKey =
+      GlobalKey<RawGestureDetectorState>();
   Drag? _drag;
 
   ScrollHoldController? _hold;
@@ -189,12 +190,12 @@ class _TouchHandler{
   void handleDragDown(DragDownDetails details) {
     assert(_drag == null);
     assert(_hold == null);
-    _hold = position.hold(disposeHold);
+    _hold = controller.position.hold(disposeHold);
   }
 
   void handleDragStart(DragStartDetails details) {
     assert(_drag == null);
-    _drag = position.drag(details, disposeDrag);
+    _drag = controller.position.drag(details, disposeDrag);
     assert(_drag != null);
     assert(_hold == null);
   }
