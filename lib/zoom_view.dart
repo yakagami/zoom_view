@@ -178,7 +178,7 @@ class _ZoomViewState extends State<ZoomView> {
   }
 }
 
-class _TouchHandler {
+final class _TouchHandler {
   final ScrollController controller;
   _TouchHandler({required this.controller});
   final GlobalKey<RawGestureDetectorState> _gestureDetectorKey =

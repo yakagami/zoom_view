@@ -4,4 +4,4 @@
 
 ## 0.0.7
 
-* Remove AbsorbPointer in place of `behavior: ScrollBehavior().copyWith(ragDevices: <PointerDeviceKind>{})`
+* Remove AbsorbPointer in place of `behavior: ScrollBehavior().copyWith(dragDevices: <PointerDeviceKind>{})`
