@@ -87,9 +87,11 @@ Note that here the controller is given both to the ZoomView and the List.
 
 ### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
-You will need to add this method to `ScrollOffsetController` (found in scrollable_positioned_list/lib/src/scrollable_positioned_list.dart)
+You will need to add these methods to `ScrollOffsetController` (found in scrollable_positioned_list/lib/src/scrollable_positioned_list.dart)
 
 ```dart
+
+  ScrollPosition get position => _scrollableListState!.primary.scrollController.position;
 
   void jumpTo(double offset){
     final currentPosition = _scrollableListState!.primary.scrollController.offset;
