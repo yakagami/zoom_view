@@ -1,4 +1,4 @@
-Widget that allows both zooming and scrolling a `ListView` or other `Scrollable`s
+Widget that allows both zooming and scrolling a `ListView`, `ScrollablePositionedList` or other `Scrollable`s
 
 ![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)
 
