@@ -1,4 +1,4 @@
-Widget that allows both zooming and scrolling a `ListView` or other `Scrollable`s
+Widget that allows both zooming and scrolling a `ListView`, or other `Scrollable`s
 
 ![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)
 
@@ -83,7 +83,21 @@ Note that here the controller is given both to the ZoomView and the List.
 
 ### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
-add this class:
+You will need to add these methods to `ScrollOffsetController` (found in scrollable_positioned_list/lib/src/scrollable_positioned_list.dart)
+
+```dart
+
+  ScrollPosition get position => _scrollableListState!.primary.scrollController.position;
+
+  void jumpTo(double offset){
+    final currentPosition = _scrollableListState!.primary.scrollController.offset;
+    final newPosition = currentPosition + offset;
+    _scrollableListState!.primary.scrollController.jumpTo(newPosition);
+  }
+
+```
+
+then add this class to your project:
 
 ```dart
 
