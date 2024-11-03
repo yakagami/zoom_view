@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 
 class ZoomListView extends StatefulWidget {
   final ListView child;
+
   const ZoomListView({super.key, required this.child});
 
   @override
@@ -13,8 +14,7 @@ class _ZoomListViewState extends State<ZoomListView> {
   @override
   void initState() {
     if (widget.child.controller == null) {
-      throw Exception(
-          "List does not have a controller. Add a controller to your list");
+      throw Exception("List does not have a controller. Add a controller to your list");
     }
     super.initState();
   }
@@ -45,7 +45,7 @@ class ZoomView extends StatefulWidget {
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin{
+class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   @override
   void initState() {
     if (widget.scrollAxis == Axis.vertical) {
@@ -78,13 +78,6 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin{
   late List<double> doubleTapScaleCircle;
   bool inDoubleTapScaleCircle = false;
   int scaleCircleIndex = 0;
-  late AnimationController scaleCircleAnimationController = AnimationController(
-    vsync: this,
-    duration: Duration(milliseconds: 4000),
-    lowerBound: 1,
-    upperBound: 4,
-  );
-  late Animation<double> scaleAnimation = scaleCircleAnimationController.view;
 
   double lastScale = 1;
 
@@ -159,6 +152,46 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin{
               verticalTouchHandler.handleDragEnd(endDetails);
               horizontalTouchHandler.handleDragEnd(hEndDetails);
             },
+            onDoubleTapDown: doubleTapScaleCircle.isEmpty
+                ? null
+                : (TapDownDetails details) {
+                    distanceFromOffset = details.localPosition.dy;
+                    horizontalDistanceFromOffset = details.localPosition.dx;
+                    focalPointDistanceFromBottomFactor = (height - distanceFromOffset) / distanceFromOffset;
+                    horizontalFocalPointDistanceFromBottomFactor = (width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
+                  },
+            onDoubleTap: doubleTapScaleCircle.isEmpty
+                ? null
+                : () {
+                    if (!inDoubleTapScaleCircle && scale == 1) {
+                      inDoubleTapScaleCircle = true;
+                      scaleCircleIndex = 0;
+                    }
+
+                    if (!inDoubleTapScaleCircle) {
+                      setState(() {
+                        lastScale = scale;
+                        scale = 1;
+                        inDoubleTapScaleCircle = true;
+                        scaleCircleIndex = 0;
+                      });
+                      return;
+                    }
+
+                    double oldHeight = height * scale;
+                    double oldWidth = width * scale;
+                    
+                    setState(() {
+                      scaleCircleIndex = (scaleCircleIndex + 1) % doubleTapScaleCircle.length;
+                      lastScale = scale = 1 / doubleTapScaleCircle[scaleCircleIndex];
+                    });
+
+                    final double newHeight = height * scale;
+                    verticalController.jumpTo(verticalController.offset + (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor));
+
+                    final double newWidth = width * scale;
+                    horizontalController.jumpTo(horizontalController.offset + (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor));
+                  },
             child: FittedBox(
               fit: BoxFit.fill,
               child: ScrollConfiguration(
