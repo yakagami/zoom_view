@@ -28,28 +28,45 @@ class _ZoomListViewState extends State<ZoomListView> {
 ///Allows a ListView or other Scrollables that implement ScrollPosition and
 ///jumpTo(offset) in their controller to be zoomed and scrolled.
 class ZoomView extends StatefulWidget {
-  const ZoomView({super.key, required this.child, required this.controller});
+  const ZoomView({
+    super.key,
+    required this.child,
+    required this.controller,
+    this.scrollAxis = Axis.vertical,
+    this.doubleTapScaleCircle = const [],
+  });
+
   final Widget child;
   final ScrollController controller;
+  final Axis scrollAxis;
+  final List<double> doubleTapScaleCircle;
 
   @override
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> {
+class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin{
   @override
   void initState() {
-    controller = widget.controller;
-    verticalTouchHandler = _TouchHandler(controller: controller);
+    if (widget.scrollAxis == Axis.vertical) {
+      verticalController = widget.controller;
+      horizontalController = ScrollController();
+    } else {
+      verticalController = ScrollController();
+      horizontalController = widget.controller;
+    }
+    verticalTouchHandler = _TouchHandler(controller: verticalController);
     horizontalTouchHandler = _TouchHandler(controller: horizontalController);
+    doubleTapScaleCircle = widget.doubleTapScaleCircle;
     super.initState();
   }
 
   double scale = 1;
-  late ScrollController controller;
+  late ScrollController verticalController;
+  late ScrollController horizontalController;
+
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
-  ScrollController horizontalController = ScrollController();
   final VelocityTracker tracker =
       VelocityTracker.withKind(PointerDeviceKind.touch);
 
@@ -58,123 +75,118 @@ class _ZoomViewState extends State<ZoomView> {
   late double focalPointDistanceFromBottomFactor;
   late double horizontalFocalPointDistanceFromBottomFactor;
 
+  late List<double> doubleTapScaleCircle;
+  bool inDoubleTapScaleCircle = false;
+  int scaleCircleIndex = 0;
+  late AnimationController scaleCircleAnimationController = AnimationController(
+    vsync: this,
+    duration: Duration(milliseconds: 4000),
+    lowerBound: 1,
+    upperBound: 4,
+  );
+  late Animation<double> scaleAnimation = scaleCircleAnimationController.view;
+
   double lastScale = 1;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-            double height = constraints.maxHeight;
-            double width = constraints.maxWidth;
-            return GestureDetector(
-              onScaleStart: (ScaleStartDetails details) {
-                if (details.pointerCount == 1) {
-                  DragStartDetails dragDetails = DragStartDetails(
-                      globalPosition: details.focalPoint,
-                      kind: PointerDeviceKind.touch);
-                  DragStartDetails hDragDetails = DragStartDetails(
-                      globalPosition: details.focalPoint,
-                      kind: PointerDeviceKind.touch);
-                  verticalTouchHandler.handleDragStart(dragDetails);
-                  horizontalTouchHandler.handleDragStart(hDragDetails);
-                } else {
-                  distanceFromOffset = details.localFocalPoint.dy;
-                  horizontalDistanceFromOffset = details.localFocalPoint.dx;
-                  focalPointDistanceFromBottomFactor =
-                      (height - distanceFromOffset) / distanceFromOffset;
-                  horizontalFocalPointDistanceFromBottomFactor =
-                      (width - horizontalDistanceFromOffset) /
-                          horizontalDistanceFromOffset;
-                }
-              },
-              onScaleUpdate: (ScaleUpdateDetails details) {
-                if (details.pointerCount > 1) {
-                  double oldHeight = height * scale;
-                  double oldWidth = width * scale;
-                  if (lastScale / details.scale <= 1.0) {
-                    setState(() {
-                      scale = lastScale / details.scale;
-                    });
-                  }
-                  //vertical offset
-                  final double newHeight = height * scale;
-                  controller.jumpTo(controller.offset +
-                      (oldHeight - newHeight) /
-                          (1 + focalPointDistanceFromBottomFactor));
+    Widget child = Expanded(
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          double height = constraints.maxHeight;
+          double width = constraints.maxWidth;
+          return GestureDetector(
+            onScaleStart: (ScaleStartDetails details) {
+              inDoubleTapScaleCircle = false;
 
-                  //horizontal offset
-                  final double newWidth = width * scale;
-                  horizontalController.jumpTo(horizontalController.offset +
-                      (oldWidth - newWidth) /
-                          (1 + horizontalFocalPointDistanceFromBottomFactor));
-                } else {
-                  final Duration currentTime = Duration(
-                      milliseconds: DateTime.now().millisecondsSinceEpoch);
-                  final double correctedDelta =
-                      details.focalPointDelta.dy * scale;
-                  final Offset correctedOffset = details.focalPoint * scale;
-                  tracker.addPosition(currentTime, correctedOffset);
-                  final DragUpdateDetails verticalDetails = DragUpdateDetails(
-                      globalPosition: correctedOffset,
-                      sourceTimeStamp: currentTime,
-                      primaryDelta: correctedDelta,
-                      delta: Offset(0.0, correctedDelta));
-                  final double horizontalCorrectedDelta =
-                      details.focalPointDelta.dx * scale;
-                  final DragUpdateDetails horizontalDetails = DragUpdateDetails(
-                      globalPosition: correctedOffset,
-                      sourceTimeStamp: currentTime,
-                      primaryDelta: horizontalCorrectedDelta,
-                      delta: Offset(horizontalCorrectedDelta, 0.0));
-                  verticalTouchHandler.handleDragUpdate(verticalDetails);
-                  horizontalTouchHandler.handleDragUpdate(horizontalDetails);
+              if (details.pointerCount == 1) {
+                DragStartDetails dragDetails = DragStartDetails(globalPosition: details.focalPoint, kind: PointerDeviceKind.touch);
+                DragStartDetails hDragDetails = DragStartDetails(globalPosition: details.focalPoint, kind: PointerDeviceKind.touch);
+                verticalTouchHandler.handleDragStart(dragDetails);
+                horizontalTouchHandler.handleDragStart(hDragDetails);
+              } else {
+                distanceFromOffset = details.localFocalPoint.dy;
+                horizontalDistanceFromOffset = details.localFocalPoint.dx;
+                focalPointDistanceFromBottomFactor = (height - distanceFromOffset) / distanceFromOffset;
+                horizontalFocalPointDistanceFromBottomFactor = (width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
+              }
+            },
+            onScaleUpdate: (ScaleUpdateDetails details) {
+              if (details.pointerCount > 1) {
+                double oldHeight = height * scale;
+                double oldWidth = width * scale;
+                if (lastScale / details.scale <= 1.0) {
+                  setState(() {
+                    scale = lastScale / details.scale;
+                  });
                 }
-              },
-              onScaleEnd: (ScaleEndDetails details) {
-                lastScale = scale;
-                Offset velocity = tracker.getVelocity().pixelsPerSecond;
-                DragEndDetails endDetails = DragEndDetails(
-                  velocity: Velocity(
-                    pixelsPerSecond: Offset(0.0, velocity.dy),
-                  ),
-                  primaryVelocity: velocity.dy,
-                );
-                DragEndDetails hEndDetails = DragEndDetails(
-                  velocity: Velocity(
-                    pixelsPerSecond: Offset(velocity.dx, 0.0),
-                  ),
-                  primaryVelocity: velocity.dx,
-                );
-                verticalTouchHandler.handleDragEnd(endDetails);
-                horizontalTouchHandler.handleDragEnd(hEndDetails);
-              },
-              child: FittedBox(
-                fit: BoxFit.fill,
-                child: ScrollConfiguration(
-                  behavior: const ScrollBehavior().copyWith(
-                      overscroll: false, dragDevices: <PointerDeviceKind>{}),
-                  child: SizedBox(
-                    height: height * scale,
-                    width: width * scale,
-                    child: ListView(
-                      physics: const ClampingScrollPhysics(),
-                      controller: horizontalController,
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        SizedBox(width: width, child: widget.child),
-                      ],
-                    ),
+                //vertical offset
+                final double newHeight = height * scale;
+                verticalController.jumpTo(verticalController.offset + (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor));
+
+                //horizontal offset
+                final double newWidth = width * scale;
+                horizontalController.jumpTo(horizontalController.offset + (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor));
+              } else {
+                final Duration currentTime = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
+                final double correctedDelta = details.focalPointDelta.dy * scale;
+                final Offset correctedOffset = details.focalPoint * scale;
+                tracker.addPosition(currentTime, correctedOffset);
+                final DragUpdateDetails verticalDetails =
+                    DragUpdateDetails(globalPosition: correctedOffset, sourceTimeStamp: currentTime, primaryDelta: correctedDelta, delta: Offset(0.0, correctedDelta));
+                final double horizontalCorrectedDelta = details.focalPointDelta.dx * scale;
+                final DragUpdateDetails horizontalDetails = DragUpdateDetails(
+                    globalPosition: correctedOffset, sourceTimeStamp: currentTime, primaryDelta: horizontalCorrectedDelta, delta: Offset(horizontalCorrectedDelta, 0.0));
+                verticalTouchHandler.handleDragUpdate(verticalDetails);
+                horizontalTouchHandler.handleDragUpdate(horizontalDetails);
+              }
+            },
+            onScaleEnd: (ScaleEndDetails details) {
+              lastScale = scale;
+              Offset velocity = tracker.getVelocity().pixelsPerSecond;
+              DragEndDetails endDetails = DragEndDetails(
+                velocity: Velocity(
+                  pixelsPerSecond: Offset(0.0, velocity.dy),
+                ),
+                primaryVelocity: velocity.dy,
+              );
+              DragEndDetails hEndDetails = DragEndDetails(
+                velocity: Velocity(
+                  pixelsPerSecond: Offset(velocity.dx, 0.0),
+                ),
+                primaryVelocity: velocity.dx,
+              );
+              verticalTouchHandler.handleDragEnd(endDetails);
+              horizontalTouchHandler.handleDragEnd(hEndDetails);
+            },
+            child: FittedBox(
+              fit: BoxFit.fill,
+              child: ScrollConfiguration(
+                behavior: const ScrollBehavior().copyWith(overscroll: false, dragDevices: <PointerDeviceKind>{}),
+                child: SizedBox(
+                  height: height * scale,
+                  width: width * scale,
+                  child: ListView(
+                    physics: const ClampingScrollPhysics(),
+                    controller: widget.scrollAxis == Axis.vertical ? horizontalController : verticalController,
+                    scrollDirection: widget.scrollAxis == Axis.vertical ? Axis.horizontal : Axis.vertical,
+                    children: [
+                      SizedBox(
+                        width: widget.scrollAxis == Axis.vertical ? width : null,
+                        height: widget.scrollAxis == Axis.vertical ? null : height,
+                        child: widget.child,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            );
-          }),
-        ),
-      ],
+            ),
+          );
+        },
+      ),
     );
+
+    return widget.scrollAxis == Axis.vertical ? Column(children: [child]) : Row(children: [child]);
   }
 }
 
