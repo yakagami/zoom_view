@@ -87,7 +87,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   void didUpdateWidget(covariant ZoomView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (listEquals(doubleTapScaleCircle, widget.doubleTapScaleCircle)) {
+    if (!listEquals(doubleTapScaleCircle, widget.doubleTapScaleCircle)) {
       setState(() {
         doubleTapScaleCircle = widget.doubleTapScaleCircle;
         inDoubleTapScaleCircle = false;
