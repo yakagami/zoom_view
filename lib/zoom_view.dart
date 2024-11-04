@@ -1,3 +1,6 @@
+import 'dart:nativewrappers/_internal/vm/lib/internal_patch.dart';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
@@ -67,8 +70,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
-  final VelocityTracker tracker =
-      VelocityTracker.withKind(PointerDeviceKind.touch);
+  final VelocityTracker tracker = VelocityTracker.withKind(PointerDeviceKind.touch);
 
   late double distanceFromOffset;
   late double horizontalDistanceFromOffset;
@@ -80,6 +82,19 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   int scaleCircleIndex = 0;
 
   double lastScale = 1;
+
+  @override
+  void didUpdateWidget(covariant ZoomView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (listEquals(doubleTapScaleCircle, widget.doubleTapScaleCircle)) {
+      setState(() {
+        doubleTapScaleCircle = widget.doubleTapScaleCircle;
+        inDoubleTapScaleCircle = false;
+        scaleCircleIndex = 0;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +195,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
                     double oldHeight = height * scale;
                     double oldWidth = width * scale;
-                    
+
                     setState(() {
                       scaleCircleIndex = (scaleCircleIndex + 1) % doubleTapScaleCircle.length;
                       lastScale = scale = 1 / doubleTapScaleCircle[scaleCircleIndex];
@@ -225,9 +240,10 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
 final class _TouchHandler {
   final ScrollController controller;
+
   _TouchHandler({required this.controller});
-  final GlobalKey<RawGestureDetectorState> _gestureDetectorKey =
-      GlobalKey<RawGestureDetectorState>();
+
+  final GlobalKey<RawGestureDetectorState> _gestureDetectorKey = GlobalKey<RawGestureDetectorState>();
   Drag? _drag;
 
   ScrollHoldController? _hold;
