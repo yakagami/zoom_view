@@ -213,6 +213,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                   height: height * scale,
                   width: width * scale,
                   child: ListView(
+                    padding: EdgeInsets.zero,
                     physics: const ClampingScrollPhysics(),
                     controller: widget.scrollAxis == Axis.vertical ? horizontalController : verticalController,
                     scrollDirection: widget.scrollAxis == Axis.vertical ? Axis.horizontal : Axis.vertical,
