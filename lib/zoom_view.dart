@@ -94,6 +94,11 @@ class _ZoomViewState extends State<ZoomView> {
                 if (details.pointerCount > 1) {
                   double oldHeight = height * scale;
                   double oldWidth = width * scale;
+                  //this prevents the viewer from zooming out more than 1x
+                  //(ie. you can only zoom in and back to 1x, you cannot zoom out
+                  //TODO: allow developers to control zoom out feature.
+                  //currently if you zoom out the List will be stuck to the
+                  //left hand side of the screen. not the middle as it should.
                   if (lastScale / details.scale <= 1.0) {
                     setState(() {
                       scale = lastScale / details.scale;
