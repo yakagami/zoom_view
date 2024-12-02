@@ -47,6 +47,9 @@ class _ZoomViewState extends State<ZoomView> {
 
   double scale = 1;
   late ScrollController controller;
+  //note: terms like vertical and horizontal TouchHandler should be replaced
+  //with mainAxisTouchHandler and crossAxisTouchHandler to add support for 
+  //arbritary Axis ListViews
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
   ScrollController horizontalController = ScrollController();
