@@ -140,6 +140,33 @@ Alternatively, you can add expose the `ScrollPosition` in `ScrollOffsetControlle
 
 ```
 
+Then add this class to your project:
+
+```dart
+
+class ScrollOffsetToScrollController extends ScrollController{
+  ScrollOffsetToScrollController({required this.scrollOffsetController});
+  final ScrollOffsetController scrollOffsetController;
+
+  @override
+  ScrollPosition get position => scrollOffsetController.position;
+
+  @override
+  double get offset => 0.0;
+
+  @override
+  void jumpTo(double value){
+    scrollOffsetController.jumpTo(value);
+  }
+
+  @override
+  Future<void> animateTo(double offset, {required Curve curve, required Duration duration}){
+    return scrollOffsetController.animateScroll(offset: offset, duration: duration);
+  }
+}
+
+```
+
 Usage:
 
 ```dart
