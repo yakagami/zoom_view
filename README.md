@@ -123,44 +123,20 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 ### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
-You will need to add these methods to `ScrollOffsetController` (found in scrollable_positioned_list/lib/src/scrollable_positioned_list.dart)
+You will need to use this fork of `scrollable_positioned_list` which exposes the list's `ScrollPosition` in `ScrollOffsetController`:
+
+```yml
+
+  scrollable_positioned_list:
+    git: https://github.com/yakagami/scrollable_positioned_list
+
+```
+
+Alternatively, you can add expose the `ScrollPosition` in `ScrollOffsetController` yourself, found in scrollable_positioned_list/lib/src/scrollable_positioned_list.dart
 
 ```dart
 
   ScrollPosition get position => _scrollableListState!.primary.scrollController.position;
-
-  void jumpTo(double offset){
-    final currentPosition = _scrollableListState!.primary.scrollController.offset;
-    final newPosition = currentPosition + offset;
-    _scrollableListState!.primary.scrollController.jumpTo(newPosition);
-  }
-
-```
-
-then add this class to your project:
-
-```dart
-
-class ScrollOffsetToScrollController extends ScrollController{
-  ScrollOffsetToScrollController({required this.scrollOffsetController});
-  final ScrollOffsetController scrollOffsetController;
-
-  @override
-  ScrollPosition get position => scrollOffsetController.position;
-
-  @override
-  double get offset => 0.0;
-
-  @override
-  void jumpTo(double value){
-    scrollOffsetController.jumpTo(value);
-  }
-
-  @override
-  Future<void> animateTo(double offset, {required Curve curve, required Duration duration}){
-    return scrollOffsetController.animateScroll(offset: offset, duration: duration);
-  }
-}
 
 ```
 
