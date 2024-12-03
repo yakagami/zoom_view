@@ -80,7 +80,7 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 Note that here the controller is given both to the ZoomView and the List.
 
-### Touble-tap to zoom
+### Double-tap to zoom
 
 (Note: this repo is currently ahead of the pub package. The pub package does not have the double-tap to zoom feature.)
 
