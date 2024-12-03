@@ -103,7 +103,7 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
       body: ZoomView(
         controller: controller,
         onDoubleTapDown: (ZoomViewDetails zoomViewDetails){
-          return handler.onDoubleTap(zoomViewDetails);
+           handler.onDoubleTap(zoomViewDetails);
         },
         child: ListView.builder(
             controller: controller,
