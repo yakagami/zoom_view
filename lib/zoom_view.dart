@@ -23,7 +23,11 @@ class _ZoomListViewState extends State<ZoomListView> {
 
   @override
   Widget build(BuildContext context) {
-    return ZoomView(controller: widget.child.controller!, child: widget.child);
+    return ZoomView(
+      controller: widget.child.controller!,
+      child: widget.child,
+      scrollAxis: widget.child.scrollDirection,
+    );
   }
 }
 
@@ -35,21 +39,34 @@ class ZoomView extends StatefulWidget {
     required this.child,
     required this.controller,
     this.onDoubleTapDown,
+    this.scrollAxis = Axis.vertical,
   });
+
   ///This is set by the user but will generally be ZoomViewGestureHandler.onDoubleTap
   final void Function(ZoomViewDetails details)? onDoubleTapDown;
   final Widget child;
   final ScrollController controller;
+  final Axis scrollAxis;
 
   @override
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin {
+class _ZoomViewState extends State<ZoomView>
+    with SingleTickerProviderStateMixin {
   @override
   void initState() {
-    controller = widget.controller;
-    verticalTouchHandler = _TouchHandler(controller: controller);
+    //note: terms like vertical and horizontal TouchHandler perhaps should be
+    //replaced with mainAxisTouchHandler and crossAxisTouchHandler to be more
+    //accurate
+    if (widget.scrollAxis == Axis.vertical) {
+      verticalController = widget.controller;
+      horizontalController = ScrollController();
+    } else {
+      verticalController = ScrollController();
+      horizontalController = widget.controller;
+    }
+    verticalTouchHandler = _TouchHandler(controller: verticalController);
     horizontalTouchHandler = _TouchHandler(controller: horizontalController);
     animationController = AnimationController(vsync: this);
     super.initState();
@@ -57,13 +74,10 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
   double scale = 1;
   late AnimationController animationController;
-  late ScrollController controller;
-  //note: terms like vertical and horizontal TouchHandler should be replaced
-  //with mainAxisTouchHandler and crossAxisTouchHandler to add support for 
-  //arbritary Axis ListViews
+  late ScrollController verticalController;
+  late ScrollController horizontalController;
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
-  final ScrollController horizontalController = ScrollController();
   final VelocityTracker tracker =
       VelocityTracker.withKind(PointerDeviceKind.touch);
 
@@ -134,10 +148,9 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                   }
                   //vertical offset
                   final double newHeight = height * scale;
-                  controller.jumpTo(controller.offset +
+                  verticalController.jumpTo(verticalController.offset +
                       (oldHeight - newHeight) /
                           (1 + focalPointDistanceFromBottomFactor));
-
                   //horizontal offset
                   final double newWidth = width * scale;
                   horizontalController.jumpTo(horizontalController.offset +
@@ -198,7 +211,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                         width: width,
                         setScale: setScale,
                         setLastScale: setLastScale,
-                        controller: controller,
+                        verticalController: verticalController,
                         horizontalController: horizontalController,
                         animationController: animationController,
                         scale: scale,
@@ -220,10 +233,21 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                       physics: widget.onDoubleTapDown == null
                           ? const ClampingScrollPhysics()
                           : const BouncingScrollPhysics(),
-                      controller: horizontalController,
-                      scrollDirection: Axis.horizontal,
+                      controller: widget.scrollAxis == Axis.vertical
+                          ? horizontalController
+                          : verticalController,
+                      scrollDirection: widget.scrollAxis == Axis.vertical
+                          ? Axis.horizontal
+                          : Axis.vertical,
                       children: [
-                        SizedBox(width: width, child: widget.child),
+                        SizedBox(
+                          width:
+                              widget.scrollAxis == Axis.vertical ? width : null,
+                          height: widget.scrollAxis == Axis.vertical
+                              ? null
+                              : height,
+                          child: widget.child,
+                        ),
                       ],
                     ),
                   ),
@@ -243,12 +267,12 @@ final class ZoomViewDetails {
   final double width;
   final Function setScale;
   final Function setLastScale;
-  final ScrollController controller;
+  final ScrollController verticalController;
   final ScrollController horizontalController;
   final AnimationController animationController;
   final double scale;
   ZoomViewDetails({
-    required this.controller,
+    required this.verticalController,
     required this.horizontalController,
     required this.tapDownDetails,
     required this.height,
@@ -289,7 +313,7 @@ final class ZoomViewGestureHandler {
     final double oldWidth = zoomViewDetails.width * zoomViewDetails.scale;
     final double newHeight = zoomViewDetails.height * newScale;
     final double newWidth = zoomViewDetails.width * newScale;
-    final verticalOffset = zoomViewDetails.controller.offset +
+    final verticalOffset = zoomViewDetails.verticalController.offset +
         (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
     final horizontalOffset = zoomViewDetails.horizontalController.offset +
         (oldWidth - newWidth) /
@@ -333,13 +357,13 @@ final class ZoomViewGestureHandler {
       animationController.addListener(_animationListener!);
       zoomViewDetails.horizontalController.animateTo(horizontalOffset,
           duration: duration, curve: Curves.linear);
-      zoomViewDetails.controller
+      zoomViewDetails.verticalController
           .animateTo(verticalOffset, duration: duration, curve: Curves.linear);
     } else {
       zoomViewDetails.setScale(newScale);
       zoomViewDetails.setLastScale(newScale);
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
-      zoomViewDetails.controller.jumpTo(verticalOffset);
+      zoomViewDetails.verticalController.jumpTo(verticalOffset);
     }
     animationController.reset();
     animationController.forward();
