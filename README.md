@@ -80,6 +80,46 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 Note that here the controller is given both to the ZoomView and the List.
 
+### Touble-tap to zoom
+
+(Note: this repo is currently ahead of the pub package. The pub package does not have the double-tap to zoom feature.)
+
+```dart
+
+class ZoomViewExample extends StatefulWidget {
+  const ZoomViewExample({super.key});
+
+  @override
+  State<ZoomViewExample> createState() => _ZoomViewExampleState();
+}
+
+class _ZoomViewExampleState extends State<ZoomViewExample> {
+  ScrollController controller = ScrollController();
+  ZoomViewGestureHandler handler = ZoomViewGestureHandler(zoomLevels: [2,1]);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: ZoomView(
+        controller: controller,
+        onDoubleTapDown: (ZoomViewDetails zoomViewDetails){
+          return handler.onDoubleTap(zoomViewDetails);
+        },
+        child: ListView.builder(
+            controller: controller,
+            itemCount: 10000,
+            itemBuilder: (context, index) {
+              return Center(
+                  child: Text("text $index")
+              );
+            }
+        ),
+      ),
+    );
+  }
+}
+
+```
 
 ### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
@@ -114,6 +154,11 @@ class ScrollOffsetToScrollController extends ScrollController{
   @override
   void jumpTo(double value){
     scrollOffsetController.jumpTo(value);
+  }
+
+  @override
+  Future<void> animateTo(double offset, {required Curve curve, required Duration duration}){
+    return scrollOffsetController.animateScroll(offset: offset, duration: duration);
   }
 }
 
