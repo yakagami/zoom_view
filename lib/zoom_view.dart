@@ -36,6 +36,7 @@ class ZoomView extends StatefulWidget {
     required this.controller,
     this.onDoubleTapDown,
   });
+  ///This is set by the user but will generally be ZoomViewGestureHandler.onDoubleTap
   final void Function(ZoomViewDetails details)? onDoubleTapDown;
   final Widget child;
   final ScrollController controller;
