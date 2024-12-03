@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
@@ -28,7 +30,13 @@ class _ZoomListViewState extends State<ZoomListView> {
 ///Allows a ListView or other Scrollables that implement ScrollPosition and
 ///jumpTo(offset) in their controller to be zoomed and scrolled.
 class ZoomView extends StatefulWidget {
-  const ZoomView({super.key, required this.child, required this.controller});
+  const ZoomView({
+    super.key,
+    required this.child,
+    required this.controller,
+    this.onDoubleTapDown,
+  });
+  final void Function(ZoomViewDetails details)? onDoubleTapDown;
   final Widget child;
   final ScrollController controller;
 
@@ -36,20 +44,22 @@ class ZoomView extends StatefulWidget {
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> {
+class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     controller = widget.controller;
     verticalTouchHandler = _TouchHandler(controller: controller);
     horizontalTouchHandler = _TouchHandler(controller: horizontalController);
+    animationController = AnimationController(vsync: this);
     super.initState();
   }
 
   double scale = 1;
+  late AnimationController animationController;
   late ScrollController controller;
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
-  ScrollController horizontalController = ScrollController();
+  final ScrollController horizontalController = ScrollController();
   final VelocityTracker tracker =
       VelocityTracker.withKind(PointerDeviceKind.touch);
 
@@ -58,7 +68,21 @@ class _ZoomViewState extends State<ZoomView> {
   late double focalPointDistanceFromBottomFactor;
   late double horizontalFocalPointDistanceFromBottomFactor;
 
+  late TapDownDetails _tapDownDetails;
+
   double lastScale = 1;
+
+  void setScale(double scale) {
+    setState(() {
+      this.scale = scale;
+    });
+  }
+
+  void setLastScale(double lastScale) {
+    setState(() {
+      this.lastScale = lastScale;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +175,29 @@ class _ZoomViewState extends State<ZoomView> {
                 verticalTouchHandler.handleDragEnd(endDetails);
                 horizontalTouchHandler.handleDragEnd(hEndDetails);
               },
+              onDoubleTapDown: widget.onDoubleTapDown == null
+                  ? null
+                  : (TapDownDetails details) {
+                      _tapDownDetails = details;
+                    },
+              onDoubleTap: widget.onDoubleTapDown == null
+                  ? null
+                  : () {
+                      ZoomViewDetails zoomViewDetails = ZoomViewDetails(
+                        tapDownDetails: _tapDownDetails,
+                        height: height,
+                        width: width,
+                        setScale: setScale,
+                        setLastScale: setLastScale,
+                        controller: controller,
+                        horizontalController: horizontalController,
+                        animationController: animationController,
+                        scale: scale,
+                      );
+                      setState(() {
+                        widget.onDoubleTapDown!(zoomViewDetails);
+                      });
+                    },
               child: FittedBox(
                 fit: BoxFit.fill,
                 child: ScrollConfiguration(
@@ -160,7 +207,10 @@ class _ZoomViewState extends State<ZoomView> {
                     height: height * scale,
                     width: width * scale,
                     child: ListView(
-                      physics: const ClampingScrollPhysics(),
+                      //animateTo does not work well with ClampingScrollPhysics
+                      physics: widget.onDoubleTapDown == null
+                          ? const ClampingScrollPhysics()
+                          : const BouncingScrollPhysics(),
                       controller: horizontalController,
                       scrollDirection: Axis.horizontal,
                       children: [
@@ -175,6 +225,115 @@ class _ZoomViewState extends State<ZoomView> {
         ),
       ],
     );
+  }
+}
+
+final class ZoomViewDetails {
+  final TapDownDetails tapDownDetails;
+  final double height;
+  final double width;
+  final Function setScale;
+  final Function setLastScale;
+  final ScrollController controller;
+  final ScrollController horizontalController;
+  final AnimationController animationController;
+  final double scale;
+  ZoomViewDetails({
+    required this.controller,
+    required this.horizontalController,
+    required this.tapDownDetails,
+    required this.height,
+    required this.width,
+    required this.setScale,
+    required this.setLastScale,
+    required this.animationController,
+    required this.scale,
+  });
+}
+
+final class ZoomViewGestureHandler {
+  int index = 0;
+  final List<int> zoomLevels;
+  final Duration duration;
+  late ZoomViewDetails zoomViewDetails;
+  void Function()? _animationListener;
+  ZoomViewGestureHandler(
+      {required this.zoomLevels,
+      this.duration = const Duration(milliseconds: 200)});
+
+  void onDoubleTap(ZoomViewDetails zoomViewDetails) {
+    double newScale = 1 / zoomLevels[index];
+    index++;
+    if (index == zoomLevels.length) {
+      index = 0;
+    }
+
+    final distanceFromOffset = zoomViewDetails.tapDownDetails.localPosition.dy;
+    final horizontalDistanceFromOffset =
+        zoomViewDetails.tapDownDetails.localPosition.dx;
+    final focalPointDistanceFromBottomFactor =
+        (zoomViewDetails.height - distanceFromOffset) / distanceFromOffset;
+    final horizontalFocalPointDistanceFromBottomFactor =
+        (zoomViewDetails.width - horizontalDistanceFromOffset) /
+            horizontalDistanceFromOffset;
+    final double oldHeight = zoomViewDetails.height * zoomViewDetails.scale;
+    final double oldWidth = zoomViewDetails.width * zoomViewDetails.scale;
+    final double newHeight = zoomViewDetails.height * newScale;
+    final double newWidth = zoomViewDetails.width * newScale;
+    final verticalOffset = zoomViewDetails.controller.offset +
+        (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
+    final horizontalOffset = zoomViewDetails.horizontalController.offset +
+        (oldWidth - newWidth) /
+            (1 + horizontalFocalPointDistanceFromBottomFactor);
+
+    AnimationController animationController =
+        zoomViewDetails.animationController;
+    animationController.duration = duration;
+
+    if (_animationListener != null) {
+      animationController.removeListener(_animationListener!);
+    }
+
+    _animationListener = () {
+      final animationValue = animationController.value;
+      final scale = lerpDouble(zoomViewDetails.scale, newScale, animationValue);
+      zoomViewDetails.setScale(scale);
+      zoomViewDetails.setLastScale(scale);
+      /*
+        This was an attempt to animate the lists manually, but for
+        some reason it does not work. While it animates to the
+        correct position, it does so at a strange rate. It would
+        be better to be able to scroll the lists manually as we
+        could use ClampingScrollPhysics again in the horizontal ListView
+
+        final verticalOffsetStep = lerpDouble(
+            zoomViewDetails.controller.offset,
+            verticalOffset,
+            animationValue
+        );
+        zoomViewDetails.controller.jumpTo(verticalOffsetStep!);
+        final horizontalOffsetStep = lerpDouble(
+            zoomViewDetails.horizontalController.offset,
+            horizontalOffset,
+            animationValue
+        );
+        zoomViewDetails.horizontalController.jumpTo(horizontalOffsetStep!);
+        */
+    };
+    if (duration != const Duration(milliseconds: 0)) {
+      animationController.addListener(_animationListener!);
+      zoomViewDetails.horizontalController.animateTo(horizontalOffset,
+          duration: duration, curve: Curves.linear);
+      zoomViewDetails.controller
+          .animateTo(verticalOffset, duration: duration, curve: Curves.linear);
+    } else {
+      zoomViewDetails.setScale(newScale);
+      zoomViewDetails.setLastScale(newScale);
+      zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
+      zoomViewDetails.controller.jumpTo(verticalOffset);
+    }
+    animationController.reset();
+    animationController.forward();
   }
 }
 
