@@ -123,7 +123,7 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
 
 ### Using [ScrollablePositionedList](https://pub.dev/packages/scrollable_positioned_list)
 
-You will need to use this fork of `scrollable_positioned_list` which exposes the list's `ScrollPosition` in `ScrollOffsetController`:
+You will need to use [this fork](https://github.com/yakagami/scrollable_positioned_list) of `scrollable_positioned_list` which exposes the list's `ScrollPosition` in `ScrollOffsetController`:
 
 ```yml
 
