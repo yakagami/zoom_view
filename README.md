@@ -152,9 +152,6 @@ class ScrollOffsetToScrollController extends ScrollController{
   ScrollPosition get position => scrollOffsetController.position;
 
   @override
-  double get offset => 0.0;
-
-  @override
   void jumpTo(double value){
     scrollOffsetController.jumpTo(value);
   }
