@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:flutter/animation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
@@ -25,8 +27,8 @@ class _ZoomListViewState extends State<ZoomListView> {
   Widget build(BuildContext context) {
     return ZoomView(
       controller: widget.child.controller!,
-      child: widget.child,
       scrollAxis: widget.child.scrollDirection,
+      child: widget.child,
     );
   }
 }
@@ -148,7 +150,7 @@ class _ZoomViewState extends State<ZoomView>
                   }
                   //vertical offset
                   final double newHeight = height * scale;
-                  verticalController.jumpTo(verticalController.offset +
+                  verticalController.jumpTo(verticalController.position.pixels +
                       (oldHeight - newHeight) /
                           (1 + focalPointDistanceFromBottomFactor));
                   //horizontal offset
@@ -233,7 +235,7 @@ class _ZoomViewState extends State<ZoomView>
                       //animateTo does not work well with ClampingScrollPhysics
                       physics: widget.onDoubleTapDown == null
                           ? const ClampingScrollPhysics()
-                          : const BouncingScrollPhysics(),
+                          : const ClampingScrollPhysics(),
                       controller: widget.scrollAxis == Axis.vertical
                           ? horizontalController
                           : verticalController,
@@ -333,33 +335,24 @@ final class ZoomViewGestureHandler {
       final scale = lerpDouble(zoomViewDetails.scale, newScale, animationValue);
       zoomViewDetails.setScale(scale);
       zoomViewDetails.setLastScale(scale);
-      /*
-        This was an attempt to animate the lists manually, but for
-        some reason it does not work. While it animates to the
-        correct position, it does so at a strange rate. It would
-        be better to be able to scroll the lists manually as we
-        could use ClampingScrollPhysics again in the horizontal ListView
-
-        final verticalOffsetStep = lerpDouble(
-            zoomViewDetails.controller.offset,
-            verticalOffset,
-            animationValue
-        );
-        zoomViewDetails.controller.jumpTo(verticalOffsetStep!);
-        final horizontalOffsetStep = lerpDouble(
-            zoomViewDetails.horizontalController.offset,
-            horizontalOffset,
-            animationValue
-        );
-        zoomViewDetails.horizontalController.jumpTo(horizontalOffsetStep!);
-        */
     };
     if (duration != const Duration(milliseconds: 0)) {
       animationController.addListener(_animationListener!);
-      zoomViewDetails.horizontalController.animateTo(horizontalOffset,
-          duration: duration, curve: Curves.linear);
-      zoomViewDetails.verticalController
-          .animateTo(verticalOffset, duration: duration, curve: Curves.linear);
+
+      _ZoomViewAnimateTo(
+          scrollController: zoomViewDetails.verticalController,
+          to: verticalOffset,
+          duration: duration,
+          curve: Curves.linear,
+      );
+
+      _ZoomViewAnimateTo(
+        scrollController: zoomViewDetails.horizontalController,
+        to: horizontalOffset,
+        duration: duration,
+        curve: Curves.linear,
+      );
+
     } else {
       zoomViewDetails.setScale(newScale);
       zoomViewDetails.setLastScale(newScale);
@@ -368,6 +361,32 @@ final class ZoomViewGestureHandler {
     }
     animationController.reset();
     animationController.forward();
+  }
+}
+
+class _ZoomViewAnimateTo {
+  final ScrollController scrollController;
+  final double to;
+  final Duration duration;
+  final Curve curve;
+  late AnimationController controller;
+  _ZoomViewAnimateTo({
+    required this.scrollController,
+    required this.to,
+    required this.duration,
+    required this.curve,
+  }) {
+    controller = AnimationController.unbounded(
+      vsync: scrollController.position.context.vsync,
+      value: scrollController.position.pixels,
+    )
+      ..addListener(() {
+        tick();
+      })
+      ..animateTo(to, duration: duration, curve: curve);
+  }
+  void tick() {
+    scrollController.jumpTo(controller.value);
   }
 }
 
