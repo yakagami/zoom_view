@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
@@ -316,7 +314,6 @@ final class ZoomViewGestureHandler {
 
     AnimationController animationController =
         zoomViewDetails.animationController;
-    animationController.duration = duration;
 
     if (_animationListener != null) {
       animationController.removeListener(_animationListener!);
@@ -324,11 +321,14 @@ final class ZoomViewGestureHandler {
 
     _animationListener = () {
       final animationValue = animationController.value;
-      final scale = lerpDouble(zoomViewDetails.scale, newScale, animationValue);
-      zoomViewDetails.setScale(scale);
-      zoomViewDetails.setLastScale(scale);
+      zoomViewDetails.setScale(animationValue);
+      zoomViewDetails.setLastScale(animationValue);
     };
+
     if (duration != const Duration(milliseconds: 0)) {
+      animationController.value = zoomViewDetails.scale;
+      animationController.animateTo(newScale, duration: duration, curve: Curves.linear);
+
       animationController.addListener(_animationListener!);
 
       _ZoomViewAnimateTo(
@@ -351,8 +351,6 @@ final class ZoomViewGestureHandler {
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
       zoomViewDetails.verticalController.jumpTo(verticalOffset);
     }
-    animationController.reset();
-    animationController.forward();
   }
 }
 
