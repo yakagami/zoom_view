@@ -152,22 +152,21 @@ class _ZoomViewState extends State<ZoomView>
                       (oldWidth - newWidth) /
                           (1 + horizontalFocalPointDistanceFromBottomFactor));
                 } else {
-                  final Duration currentTime = Duration(
-                      milliseconds: DateTime.now().millisecondsSinceEpoch);
                   final double correctedDelta =
                       details.focalPointDelta.dy * scale;
                   final Offset correctedOffset = details.focalPoint * scale;
-                  tracker.addPosition(currentTime, correctedOffset);
+                  final time = details.sourceTimeStamp!;
+                  tracker.addPosition(time, correctedOffset);
                   final DragUpdateDetails verticalDetails = DragUpdateDetails(
                       globalPosition: correctedOffset,
-                      sourceTimeStamp: currentTime,
+                      sourceTimeStamp: time,
                       primaryDelta: correctedDelta,
                       delta: Offset(0.0, correctedDelta));
                   final double horizontalCorrectedDelta =
                       details.focalPointDelta.dx * scale;
                   final DragUpdateDetails horizontalDetails = DragUpdateDetails(
                       globalPosition: correctedOffset,
-                      sourceTimeStamp: currentTime,
+                      sourceTimeStamp: time,
                       primaryDelta: horizontalCorrectedDelta,
                       delta: Offset(horizontalCorrectedDelta, 0.0));
                   verticalTouchHandler.handleDragUpdate(verticalDetails);
