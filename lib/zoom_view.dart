@@ -58,9 +58,6 @@ class _ZoomViewState extends State<ZoomView>
     with SingleTickerProviderStateMixin {
   @override
   void initState() {
-    //note: terms like vertical and horizontal TouchHandler perhaps should be
-    //replaced with mainAxisTouchHandler and crossAxisTouchHandler to be more
-    //accurate
     if (widget.scrollAxis == Axis.vertical) {
       verticalController = widget.controller;
       horizontalController = ScrollController();
