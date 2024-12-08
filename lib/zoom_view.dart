@@ -289,7 +289,7 @@ final class ZoomViewGestureHandler {
   void Function()? _animationListener;
   ZoomViewGestureHandler(
       {required this.zoomLevels,
-      this.duration = const Duration(milliseconds: 200)});
+      this.duration = const Duration(milliseconds: 100)});
 
   void onDoubleTap(ZoomViewDetails zoomViewDetails) {
     double newScale = 1 / zoomLevels[index];
