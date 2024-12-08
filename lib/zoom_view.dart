@@ -232,10 +232,7 @@ class _ZoomViewState extends State<ZoomView>
                     width: width * scale,
                     child: ListView(
                       padding: EdgeInsets.zero,
-                      //animateTo does not work well with ClampingScrollPhysics
-                      physics: widget.onDoubleTapDown == null
-                          ? const ClampingScrollPhysics()
-                          : const ClampingScrollPhysics(),
+                      physics: const ClampingScrollPhysics(),
                       controller: widget.scrollAxis == Axis.vertical
                           ? horizontalController
                           : verticalController,
