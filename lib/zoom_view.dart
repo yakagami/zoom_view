@@ -91,14 +91,9 @@ class _ZoomViewState extends State<ZoomView>
 
   double lastScale = 1;
 
-  void setScale(double scale) {
+  void updateScale(double scale) {
     setState(() {
       this.scale = scale;
-    });
-  }
-
-  void setLastScale(double lastScale) {
-    setState(() {
       this.lastScale = lastScale;
     });
   }
@@ -114,18 +109,14 @@ class _ZoomViewState extends State<ZoomView>
             double width = constraints.maxWidth;
             return Listener(
               onPointerDown: (PointerDownEvent event) {
-                if (event.kind == PointerDeviceKind.trackpad) {
-                  trackPadState = TrackPadState.waiting;
-                } else {
-                  trackPadState = TrackPadState.none;
-                }
+                trackPadState = event.kind == PointerDeviceKind.trackpad
+                    ? TrackPadState.waiting
+                    : TrackPadState.none;
               },
               onPointerPanZoomStart: (PointerPanZoomStartEvent event) {
-                if (event.kind == PointerDeviceKind.trackpad) {
-                  trackPadState = TrackPadState.waiting;
-                } else {
-                  trackPadState = TrackPadState.none;
-                }
+                trackPadState = event.kind == PointerDeviceKind.trackpad
+                    ? TrackPadState.waiting
+                    : TrackPadState.none;
               },
               child: GestureDetector(
                 onScaleStart: (ScaleStartDetails details) {
@@ -160,7 +151,7 @@ class _ZoomViewState extends State<ZoomView>
                           details.focalPointDelta.dx * scale;
                       globalDistanceHorizontal += correctedDeltaHorizontal;
                       if (globalDistanceVertical.abs() >
-                          kPrecisePointerPanSlop ||
+                              kPrecisePointerPanSlop ||
                           globalDistanceHorizontal.abs() >
                               kPrecisePointerPanSlop) {
                         trackPadState = TrackPadState.pan;
@@ -174,7 +165,7 @@ class _ZoomViewState extends State<ZoomView>
                         horizontalTouchHandler.handleDragStart(hDragDetails);
                       }
                     }
-                  } else if(details.pointerCount > 1 &&
+                  } else if (details.pointerCount > 1 &&
                           trackPadState == TrackPadState.none ||
                       trackPadState == TrackPadState.scale) {
                     double oldHeight = height * scale;
@@ -261,8 +252,7 @@ class _ZoomViewState extends State<ZoomView>
                           tapDownDetails: _tapDownDetails,
                           height: height,
                           width: width,
-                          setScale: setScale,
-                          setLastScale: setLastScale,
+                          updateScale: updateScale,
                           verticalController: verticalController,
                           horizontalController: horizontalController,
                           animationController: animationController,
@@ -321,8 +311,7 @@ final class ZoomViewDetails {
   final TapDownDetails tapDownDetails;
   final double height;
   final double width;
-  final Function setScale;
-  final Function setLastScale;
+  final Function updateScale;
   final ScrollController verticalController;
   final ScrollController horizontalController;
   final AnimationController animationController;
@@ -333,8 +322,7 @@ final class ZoomViewDetails {
     required this.tapDownDetails,
     required this.height,
     required this.width,
-    required this.setScale,
-    required this.setLastScale,
+    required this.updateScale,
     required this.animationController,
     required this.scale,
   });
@@ -382,18 +370,16 @@ final class ZoomViewGestureHandler {
       animationController.removeListener(_animationListener!);
     }
 
-    _animationListener = () {
-      final animationValue = animationController.value;
-      zoomViewDetails.setScale(animationValue);
-      zoomViewDetails.setLastScale(animationValue);
-    };
-
     if (duration != const Duration(milliseconds: 0)) {
       animationController.value = zoomViewDetails.scale;
+
+      _animationListener = () {
+        zoomViewDetails.updateScale(animationController.value);
+      };
+      animationController.addListener(_animationListener!);
+
       animationController.animateTo(newScale,
           duration: duration, curve: Curves.linear);
-
-      animationController.addListener(_animationListener!);
 
       _ZoomViewAnimateTo(
         scrollController: zoomViewDetails.verticalController,
@@ -409,8 +395,7 @@ final class ZoomViewGestureHandler {
         curve: Curves.linear,
       );
     } else {
-      zoomViewDetails.setScale(newScale);
-      zoomViewDetails.setLastScale(newScale);
+      zoomViewDetails.updateScale(newScale);
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
       zoomViewDetails.verticalController.jumpTo(verticalOffset);
     }
