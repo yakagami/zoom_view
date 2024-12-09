@@ -115,7 +115,6 @@ class _ZoomViewState extends State<ZoomView>
             return Listener(
               onPointerDown: (PointerDownEvent event) {
                 if (event.kind == PointerDeviceKind.trackpad) {
-                  //trackPadState = TrackPadState.none;
                   trackPadState = TrackPadState.waiting;
                 } else {
                   trackPadState = TrackPadState.none;
@@ -123,7 +122,6 @@ class _ZoomViewState extends State<ZoomView>
               },
               onPointerPanZoomStart: (PointerPanZoomStartEvent event) {
                 if (event.kind == PointerDeviceKind.trackpad) {
-                  //trackPadState = TrackPadState.none;
                   trackPadState = TrackPadState.waiting;
                 } else {
                   trackPadState = TrackPadState.none;
@@ -151,7 +149,32 @@ class _ZoomViewState extends State<ZoomView>
                   }
                 },
                 onScaleUpdate: (ScaleUpdateDetails details) {
-                  if (details.pointerCount > 1 &&
+                  if (trackPadState == TrackPadState.waiting) {
+                    if (details.scale != 1.0) {
+                      trackPadState = TrackPadState.scale;
+                    } else {
+                      final double correctedDeltaVertical =
+                          details.focalPointDelta.dy * scale;
+                      globalDistanceVertical += correctedDeltaVertical;
+                      final correctedDeltaHorizontal =
+                          details.focalPointDelta.dx * scale;
+                      globalDistanceHorizontal += correctedDeltaHorizontal;
+                      if (globalDistanceVertical.abs() >
+                          kPrecisePointerPanSlop ||
+                          globalDistanceHorizontal.abs() >
+                              kPrecisePointerPanSlop) {
+                        trackPadState = TrackPadState.pan;
+                        DragStartDetails dragDetails = DragStartDetails(
+                            globalPosition: details.focalPoint,
+                            kind: PointerDeviceKind.touch);
+                        DragStartDetails hDragDetails = DragStartDetails(
+                            globalPosition: details.focalPoint,
+                            kind: PointerDeviceKind.touch);
+                        verticalTouchHandler.handleDragStart(dragDetails);
+                        horizontalTouchHandler.handleDragStart(hDragDetails);
+                      }
+                    }
+                  } else if(details.pointerCount > 1 &&
                           trackPadState == TrackPadState.none ||
                       trackPadState == TrackPadState.scale) {
                     double oldHeight = height * scale;
@@ -203,31 +226,6 @@ class _ZoomViewState extends State<ZoomView>
                             delta: Offset(horizontalCorrectedDelta, 0.0));
                     verticalTouchHandler.handleDragUpdate(verticalDetails);
                     horizontalTouchHandler.handleDragUpdate(horizontalDetails);
-                  } else {
-                    if (details.scale != 1.0) {
-                      trackPadState = TrackPadState.scale;
-                    } else {
-                      final double correctedDeltaVertical =
-                          details.focalPointDelta.dy * scale;
-                      globalDistanceVertical += correctedDeltaVertical;
-                      final correctedDeltaHorizontal =
-                          details.focalPointDelta.dx * scale;
-                      globalDistanceHorizontal += correctedDeltaHorizontal;
-                      if (globalDistanceVertical.abs() >
-                              kPrecisePointerPanSlop ||
-                          globalDistanceHorizontal.abs() >
-                              kPrecisePointerPanSlop) {
-                        trackPadState = TrackPadState.pan;
-                        DragStartDetails dragDetails = DragStartDetails(
-                            globalPosition: details.focalPoint,
-                            kind: PointerDeviceKind.touch);
-                        DragStartDetails hDragDetails = DragStartDetails(
-                            globalPosition: details.focalPoint,
-                            kind: PointerDeviceKind.touch);
-                        verticalTouchHandler.handleDragStart(dragDetails);
-                        horizontalTouchHandler.handleDragStart(hDragDetails);
-                      }
-                    }
                   }
                 },
                 onScaleEnd: (ScaleEndDetails details) {
