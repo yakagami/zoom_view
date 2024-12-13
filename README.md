@@ -82,8 +82,6 @@ Note that here the controller is given both to the ZoomView and the List.
 
 ### Double-tap to zoom
 
-(Note: this repo is currently ahead of the pub package. The pub package does not have the double-tap to zoom feature.)
-
 ```dart
 
 class ZoomViewExample extends StatefulWidget {
