@@ -69,11 +69,9 @@ class _ZoomViewState extends State<ZoomView>
   @override
   void initState() {
     if (widget.scrollAxis == Axis.vertical) {
-      print("set to vertical");
       verticalController = widget.controller;
       horizontalController = ScrollController();
     } else {
-      print("set to horizontal");
       verticalController = ScrollController();
       horizontalController = widget.controller;
     }
@@ -220,8 +218,6 @@ class _ZoomViewState extends State<ZoomView>
                 );
               } else if (trackPadState == TrackPadState.none ||
                   trackPadState == TrackPadState.pan) {
-                    print("dx: ${details.focalPointDelta.dx}");
-                    print("dy: ${details.focalPointDelta.dy}");
             
                 final double correctedDelta =
                     details.focalPointDelta.dy * scale;
@@ -364,7 +360,7 @@ final class ZoomViewDetails {
 
 final class ZoomViewGestureHandler {
   int index = 0;
-  final List<int> zoomLevels;
+  final List<double> zoomLevels;
   final Duration duration;
   late ZoomViewDetails zoomViewDetails;
   void Function()? _animationListener;
