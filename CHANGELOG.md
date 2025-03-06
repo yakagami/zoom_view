@@ -9,3 +9,7 @@
 ## 0.0.16
 
 Added support for horizontal scroll axis, double-tap to zoom and trackpad scrolling support
+
+## 0.0.18
+
+Added support for zoomout out passed 1.0x zoom. Added ability to set min scale and max scale
