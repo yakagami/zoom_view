@@ -82,14 +82,15 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
     super.initState();
   }
 
-  //The current scale of the ZoomView
+  ///The current scale of the ZoomView
   double scale = 1;
+  ///The scale of the ZoomView before the last scale update event
   double lastScale = 1;
 
-  //Used for trackpad pointerEvents to determine if the user is panning or scaling
+  ///Used for trackpad pointerEvents to determine if the user is panning or scaling
   late TrackPadState trackPadState;
 
-  //Total distance the trackpad has moved vertically since the last scale start event
+  ///Total distance the trackpad has moved vertically since the last scale start event
   double globalTrackpadDistanceVertical = 0.0;
 
   ///Total distance the trackpad has moved horizontally since the last scale start event
@@ -99,7 +100,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
   ///Used to by double tap to animate to a new scale.
   ///Does not animate the scroll positions
-  late AnimationController animationController;
+  late final AnimationController animationController;
 
   late final ScrollController verticalController;
   late final ScrollController horizontalController;
