@@ -4,7 +4,7 @@ version: 0.0.19
 repository: "https://github.com/yakagami/zoom_view"
 
 environment:
-  sdk: '>=3.7.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
   flutter: ">=3.17.0"
 
 dependencies:
