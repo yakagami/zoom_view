@@ -111,12 +111,6 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
     PointerDeviceKind.touch,
   );
 
-  ///The distance of the focal point from the bottom of the screen
-  late double focalPointDistanceFromBottomFactor;
-
-  ///The distance of the focal point from the right of the screen
-  late double horizontalFocalPointDistanceFromBottomFactor;
-
   late TapDownDetails _tapDownDetails;
 
   void updateScale(double scale) {
@@ -154,13 +148,6 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                 );
                 verticalTouchHandler.handleDragStart(dragDetails);
                 horizontalTouchHandler.handleDragStart(dragDetails);
-              } else {
-                final distanceFromOffset = details.localFocalPoint.dy;
-                final horizontalDistanceFromOffset = details.localFocalPoint.dx;
-                focalPointDistanceFromBottomFactor =
-                    (height - distanceFromOffset) / distanceFromOffset;
-                horizontalFocalPointDistanceFromBottomFactor =
-                    (width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
               }
             },
             onScaleUpdate: (ScaleUpdateDetails details) {
@@ -188,26 +175,19 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                 }
               } else if (details.pointerCount > 1 && trackPadState == TrackPadState.none ||
                   trackPadState == TrackPadState.scale) {
-                double oldHeight = height * scale;
-                double oldWidth = width * scale;
-                final newScale = lastScale / details.scale;
+                final newScale = _clampDouble(
+                    lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
+                final verticalOffset = verticalController.position.pixels +
+                    (scale - newScale) * details.localFocalPoint.dy;
+                final horizontalOffset = horizontalController.position.pixels +
+                    (scale - newScale) * details.localFocalPoint.dx;
+
                 setState(() {
-                  scale = _clampDouble(newScale, 1 / widget.maxScale, 1 / widget.minScale);
+                  scale = newScale;
                 });
 
-                //vertical offset
-                final double newHeight = height * scale;
-                verticalController.jumpTo(
-                  verticalController.position.pixels +
-                      (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor),
-                );
-
-                //horizontal offset
-                final double newWidth = width * scale;
-                horizontalController.jumpTo(
-                  horizontalController.offset +
-                      (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor),
-                );
+                verticalController.jumpTo(verticalOffset);
+                horizontalController.jumpTo(horizontalOffset);
               } else if (trackPadState == TrackPadState.none ||
                   trackPadState == TrackPadState.pan) {
                 final double correctedDelta = details.focalPointDelta.dy * scale;
@@ -339,24 +319,13 @@ final class ZoomViewDetails {
   });
 
   double getVerticalOffset(double newScale) {
-    final distanceFromOffset = tapDownDetails.localPosition.dy;
-    final focalPointDistanceFromBottomFactor = (height - distanceFromOffset) / distanceFromOffset;
-    final double oldHeight = height * scale;
-    final double newHeight = height * newScale;
-    final verticalOffset = verticalController.offset +
-        (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
-    return verticalOffset;
+    return verticalController.position.pixels +
+        (scale - newScale) * tapDownDetails.localPosition.dy;
   }
 
   double getHorizontalOffset(double newScale) {
-    final horizontalDistanceFromOffset = tapDownDetails.localPosition.dx;
-    final horizontalFocalPointDistanceFromBottomFactor =
-        (width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
-    final double oldWidth = width * scale;
-    final double newWidth = width * newScale;
-    final horizontalOffset = horizontalController.offset +
-        (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor);
-    return horizontalOffset;
+    return horizontalController.position.pixels +
+        (scale - newScale) * tapDownDetails.localPosition.dx;
   }
 }
 
