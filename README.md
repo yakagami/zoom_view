@@ -1,4 +1,10 @@
-Widget that allows both zooming and scrolling a `ListView`, or other `Scrollable`s
+Widget that allows both zooming and scrolling a `ListView`, or other `Scrollable`s such as scrollable_positioned_list.
+
+## Features
+
+Double tap to zoom, min and max scale, scroll a list of images, maintain standard ScrollPhysics and fling velocity.
+
+## Demo
 
 ![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)
 
