@@ -101,11 +101,11 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
   ///Does not animate the scroll positions
   late AnimationController animationController;
 
-  late ScrollController verticalController;
-  late ScrollController horizontalController;
+  late final ScrollController verticalController;
+  late final ScrollController horizontalController;
 
-  late _TouchHandler verticalTouchHandler;
-  late _TouchHandler horizontalTouchHandler;
+  late final _TouchHandler verticalTouchHandler;
+  late final _TouchHandler horizontalTouchHandler;
 
   final VelocityTracker tracker = VelocityTracker.withKind(
     PointerDeviceKind.touch,
@@ -387,7 +387,7 @@ final class ZoomViewGestureHandler {
     final verticalOffset = zoomViewDetails.getVerticalOffset(newScale);
     final horizontalOffset = zoomViewDetails.getHorizontalOffset(newScale);
 
-    AnimationController animationController = zoomViewDetails.animationController;
+    final animationController = zoomViewDetails.animationController;
 
     if (_animationListener != null) {
       animationController.removeListener(_animationListener!);
