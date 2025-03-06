@@ -3,7 +3,14 @@ import 'package:flutter/gestures.dart';
 
 class ZoomListView extends StatefulWidget {
   final ListView child;
-  const ZoomListView({super.key, required this.child});
+  final double minScale;
+  final double maxScale;
+  const ZoomListView({
+    super.key,
+    required this.child,
+    this.minScale = 1.0,
+    this.maxScale = 4.0,
+  });
 
   @override
   State<ZoomListView> createState() => _ZoomListViewState();
@@ -14,7 +21,8 @@ class _ZoomListViewState extends State<ZoomListView> {
   void initState() {
     if (widget.child.controller == null) {
       throw Exception(
-          "List does not have a controller. Add a controller to your list");
+        "List does not have a controller. Add a controller to your list",
+      );
     }
     super.initState();
   }
@@ -24,6 +32,8 @@ class _ZoomListViewState extends State<ZoomListView> {
     return ZoomView(
       controller: widget.child.controller!,
       scrollAxis: widget.child.scrollDirection,
+      maxScale: widget.maxScale,
+      minScale: widget.minScale,
       child: widget.child,
     );
   }
@@ -36,15 +46,19 @@ class ZoomView extends StatefulWidget {
     super.key,
     required this.child,
     required this.controller,
+    this.maxScale = 4.0,
+    this.minScale = 1.0,
     this.onDoubleTapDown,
     this.scrollAxis = Axis.vertical,
   });
 
-  ///This is set by the user but will generally be ZoomViewGestureHandler.onDoubleTap
+  ///This is set by the user but will generally be ZoomViewGestureHandler.onDoubleTap or null
   final void Function(ZoomViewDetails details)? onDoubleTapDown;
   final Widget child;
   final ScrollController controller;
   final Axis scrollAxis;
+  final double maxScale;
+  final double minScale;
 
   @override
   State<ZoomView> createState() => _ZoomViewState();
@@ -55,9 +69,11 @@ class _ZoomViewState extends State<ZoomView>
   @override
   void initState() {
     if (widget.scrollAxis == Axis.vertical) {
+      print("set to vertical");
       verticalController = widget.controller;
       horizontalController = ScrollController();
     } else {
+      print("set to horizontal");
       verticalController = ScrollController();
       horizontalController = widget.controller;
     }
@@ -68,6 +84,7 @@ class _ZoomViewState extends State<ZoomView>
   }
 
   double scale = 1;
+  double lastScale = 1;
   double globalDistanceVertical = 0.0;
   double globalDistanceHorizontal = 0.0;
 
@@ -79,8 +96,9 @@ class _ZoomViewState extends State<ZoomView>
   late ScrollController horizontalController;
   late _TouchHandler verticalTouchHandler;
   late _TouchHandler horizontalTouchHandler;
-  final VelocityTracker tracker =
-      VelocityTracker.withKind(PointerDeviceKind.touch);
+  final VelocityTracker tracker = VelocityTracker.withKind(
+    PointerDeviceKind.touch,
+  );
 
   late double distanceFromOffset;
   late double horizontalDistanceFromOffset;
@@ -89,216 +107,232 @@ class _ZoomViewState extends State<ZoomView>
 
   late TapDownDetails _tapDownDetails;
 
-  double lastScale = 1;
-
   void updateScale(double scale) {
     setState(() {
       this.scale = scale;
-      this.lastScale = lastScale;
+      lastScale = scale;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-            double height = constraints.maxHeight;
-            double width = constraints.maxWidth;
-            return Listener(
-              onPointerDown: (PointerDownEvent event) {
-                trackPadState = event.kind == PointerDeviceKind.trackpad
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        double height = constraints.maxHeight;
+        double width = constraints.maxWidth;
+        return Listener(
+          onPointerDown: (PointerDownEvent event) {
+            trackPadState =
+                event.kind == PointerDeviceKind.trackpad
                     ? TrackPadState.waiting
                     : TrackPadState.none;
-              },
-              onPointerPanZoomStart: (PointerPanZoomStartEvent event) {
-                trackPadState = event.kind == PointerDeviceKind.trackpad
+          },
+          onPointerPanZoomStart: (PointerPanZoomStartEvent event) {
+            trackPadState =
+                event.kind == PointerDeviceKind.trackpad
                     ? TrackPadState.waiting
                     : TrackPadState.none;
-              },
-              child: GestureDetector(
-                onScaleStart: (ScaleStartDetails details) {
-                  if (details.pointerCount == 1) {
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onScaleStart: (ScaleStartDetails details) {
+              if (details.pointerCount == 1) {
+                DragStartDetails dragDetails = DragStartDetails(
+                  globalPosition: details.focalPoint,
+                  kind: PointerDeviceKind.touch,
+                );
+                DragStartDetails hDragDetails = DragStartDetails(
+                  globalPosition: details.focalPoint,
+                  kind: PointerDeviceKind.touch,
+                );
+                verticalTouchHandler.handleDragStart(dragDetails);
+                horizontalTouchHandler.handleDragStart(hDragDetails);
+              } else {
+                distanceFromOffset = details.localFocalPoint.dy;
+                horizontalDistanceFromOffset = details.localFocalPoint.dx;
+                focalPointDistanceFromBottomFactor =
+                    (height - distanceFromOffset) / distanceFromOffset;
+                horizontalFocalPointDistanceFromBottomFactor =
+                    (width - horizontalDistanceFromOffset) /
+                    horizontalDistanceFromOffset;
+              }
+            },
+            onScaleUpdate: (ScaleUpdateDetails details) {
+              if (trackPadState == TrackPadState.waiting) {
+                if (details.scale != 1.0) {
+                  trackPadState = TrackPadState.scale;
+                } else {
+                  final double correctedDeltaVertical =
+                      details.focalPointDelta.dy * scale;
+                  globalDistanceVertical += correctedDeltaVertical;
+                  final correctedDeltaHorizontal =
+                      details.focalPointDelta.dx * scale;
+                  globalDistanceHorizontal += correctedDeltaHorizontal;
+                  if (globalDistanceVertical.abs() > kPrecisePointerPanSlop ||
+                      globalDistanceHorizontal.abs() > kPrecisePointerPanSlop) {
+                    trackPadState = TrackPadState.pan;
                     DragStartDetails dragDetails = DragStartDetails(
-                        globalPosition: details.focalPoint,
-                        kind: PointerDeviceKind.touch);
+                      globalPosition: details.focalPoint,
+                      kind: PointerDeviceKind.touch,
+                    );
                     DragStartDetails hDragDetails = DragStartDetails(
-                        globalPosition: details.focalPoint,
-                        kind: PointerDeviceKind.touch);
+                      globalPosition: details.focalPoint,
+                      kind: PointerDeviceKind.touch,
+                    );
                     verticalTouchHandler.handleDragStart(dragDetails);
                     horizontalTouchHandler.handleDragStart(hDragDetails);
-                  } else {
-                    distanceFromOffset = details.localFocalPoint.dy;
-                    horizontalDistanceFromOffset = details.localFocalPoint.dx;
-                    focalPointDistanceFromBottomFactor =
-                        (height - distanceFromOffset) / distanceFromOffset;
-                    horizontalFocalPointDistanceFromBottomFactor =
-                        (width - horizontalDistanceFromOffset) /
-                            horizontalDistanceFromOffset;
                   }
-                },
-                onScaleUpdate: (ScaleUpdateDetails details) {
-                  if (trackPadState == TrackPadState.waiting) {
-                    if (details.scale != 1.0) {
-                      trackPadState = TrackPadState.scale;
-                    } else {
-                      final double correctedDeltaVertical =
-                          details.focalPointDelta.dy * scale;
-                      globalDistanceVertical += correctedDeltaVertical;
-                      final correctedDeltaHorizontal =
-                          details.focalPointDelta.dx * scale;
-                      globalDistanceHorizontal += correctedDeltaHorizontal;
-                      if (globalDistanceVertical.abs() >
-                              kPrecisePointerPanSlop ||
-                          globalDistanceHorizontal.abs() >
-                              kPrecisePointerPanSlop) {
-                        trackPadState = TrackPadState.pan;
-                        DragStartDetails dragDetails = DragStartDetails(
-                            globalPosition: details.focalPoint,
-                            kind: PointerDeviceKind.touch);
-                        DragStartDetails hDragDetails = DragStartDetails(
-                            globalPosition: details.focalPoint,
-                            kind: PointerDeviceKind.touch);
-                        verticalTouchHandler.handleDragStart(dragDetails);
-                        horizontalTouchHandler.handleDragStart(hDragDetails);
-                      }
-                    }
-                  } else if (details.pointerCount > 1 &&
-                          trackPadState == TrackPadState.none ||
-                      trackPadState == TrackPadState.scale) {
-                    double oldHeight = height * scale;
-                    double oldWidth = width * scale;
-                    //this prevents the viewer from zooming out more than 1x
-                    //(ie. you can only zoom in and back to 1x, you cannot zoom out
-                    //TODO: allow developers to control zoom out feature.
-                    //currently if you zoom out the List will be stuck to the
-                    //left hand side of the screen. not the middle as it should.
-                    if (lastScale / details.scale <= 1.0) {
-                      setState(() {
-                        scale = lastScale / details.scale;
-                      });
-                    } else {
-                      setState(() {
-                        scale = 1.0;
-                      });
-                    }
-                    //vertical offset
-                    final double newHeight = height * scale;
-                    verticalController.jumpTo(
-                        verticalController.position.pixels +
-                            (oldHeight - newHeight) /
-                                (1 + focalPointDistanceFromBottomFactor));
-                    //horizontal offset
-                    final double newWidth = width * scale;
-                    horizontalController.jumpTo(horizontalController.offset +
-                        (oldWidth - newWidth) /
-                            (1 + horizontalFocalPointDistanceFromBottomFactor));
-                  } else if (trackPadState == TrackPadState.none ||
-                      trackPadState == TrackPadState.pan) {
-                    final double correctedDelta =
-                        details.focalPointDelta.dy * scale;
-                    final Offset correctedOffset = details.focalPoint * scale;
-                    final time = details.sourceTimeStamp!;
-                    tracker.addPosition(time, correctedOffset);
-                    final DragUpdateDetails verticalDetails = DragUpdateDetails(
-                        globalPosition: correctedOffset,
-                        sourceTimeStamp: time,
-                        primaryDelta: correctedDelta,
-                        delta: Offset(0.0, correctedDelta));
-                    final double horizontalCorrectedDelta =
-                        details.focalPointDelta.dx * scale;
-                    final DragUpdateDetails horizontalDetails =
-                        DragUpdateDetails(
-                            globalPosition: correctedOffset,
-                            sourceTimeStamp: time,
-                            primaryDelta: horizontalCorrectedDelta,
-                            delta: Offset(horizontalCorrectedDelta, 0.0));
-                    verticalTouchHandler.handleDragUpdate(verticalDetails);
-                    horizontalTouchHandler.handleDragUpdate(horizontalDetails);
-                  }
-                },
-                onScaleEnd: (ScaleEndDetails details) {
-                  trackPadState = TrackPadState.none;
-                  globalDistanceVertical = 0.0;
-                  globalDistanceHorizontal = 0.0;
-                  lastScale = scale;
-                  Offset velocity = tracker.getVelocity().pixelsPerSecond;
-                  DragEndDetails endDetails = DragEndDetails(
-                    velocity: Velocity(
-                      pixelsPerSecond: Offset(0.0, velocity.dy),
-                    ),
-                    primaryVelocity: velocity.dy,
-                  );
-                  DragEndDetails hEndDetails = DragEndDetails(
-                    velocity: Velocity(
-                      pixelsPerSecond: Offset(velocity.dx, 0.0),
-                    ),
-                    primaryVelocity: velocity.dx,
-                  );
-                  verticalTouchHandler.handleDragEnd(endDetails);
-                  horizontalTouchHandler.handleDragEnd(hEndDetails);
-                },
-                onDoubleTapDown: widget.onDoubleTapDown == null
+                }
+              } else if (details.pointerCount > 1 &&
+                      trackPadState == TrackPadState.none ||
+                  trackPadState == TrackPadState.scale) {
+                double oldHeight = height * scale;
+                double oldWidth = width * scale;
+                final newScale = lastScale / details.scale;
+                if (newScale < 1 / widget.maxScale) {
+                  setState(() {
+                    scale = 1 / widget.maxScale;
+                  });
+                } else if (newScale > 1 / widget.minScale) {
+                  setState(() {
+                    scale = 1 / widget.minScale;
+                  });
+                } else {
+                  setState(() {
+                    scale = newScale;
+                  });
+                }
+                
+                //vertical offset
+                final double newHeight = height * scale;
+                verticalController.jumpTo(
+                  verticalController.position.pixels +
+                      (oldHeight - newHeight) /
+                          (1 + focalPointDistanceFromBottomFactor),
+                );
+                
+                //horizontal offset
+                final double newWidth = width * scale;
+                horizontalController.jumpTo(
+                  horizontalController.offset +
+                      (oldWidth - newWidth) /
+                          (1 + horizontalFocalPointDistanceFromBottomFactor),
+                );
+              } else if (trackPadState == TrackPadState.none ||
+                  trackPadState == TrackPadState.pan) {
+                    print("dx: ${details.focalPointDelta.dx}");
+                    print("dy: ${details.focalPointDelta.dy}");
+            
+                final double correctedDelta =
+                    details.focalPointDelta.dy * scale;
+                final Offset correctedOffset = details.focalPoint * scale;
+                final time = details.sourceTimeStamp!;
+                tracker.addPosition(time, correctedOffset);
+                final DragUpdateDetails verticalDetails = DragUpdateDetails(
+                  globalPosition: correctedOffset,
+                  sourceTimeStamp: time,
+                  primaryDelta: correctedDelta,
+                  delta: Offset(0.0, correctedDelta),
+                );
+                final double horizontalCorrectedDelta =
+                    details.focalPointDelta.dx * scale;
+                final DragUpdateDetails horizontalDetails = DragUpdateDetails(
+                  globalPosition: correctedOffset,
+                  sourceTimeStamp: time,
+                  primaryDelta: horizontalCorrectedDelta,
+                  delta: Offset(horizontalCorrectedDelta, 0.0),
+                );
+                verticalTouchHandler.handleDragUpdate(verticalDetails);
+                horizontalTouchHandler.handleDragUpdate(horizontalDetails);
+              }
+            },
+            onScaleEnd: (ScaleEndDetails details) {
+              trackPadState = TrackPadState.none;
+              globalDistanceVertical = 0.0;
+              globalDistanceHorizontal = 0.0;
+              lastScale = scale;
+              Offset velocity = tracker.getVelocity().pixelsPerSecond;
+              DragEndDetails endDetails = DragEndDetails(
+                velocity: Velocity(pixelsPerSecond: Offset(0.0, velocity.dy)),
+                primaryVelocity: velocity.dy,
+              );
+              DragEndDetails hEndDetails = DragEndDetails(
+                velocity: Velocity(pixelsPerSecond: Offset(velocity.dx, 0.0)),
+                primaryVelocity: velocity.dx,
+              );
+              verticalTouchHandler.handleDragEnd(endDetails);
+              horizontalTouchHandler.handleDragEnd(hEndDetails);
+            },
+            onDoubleTapDown:
+                widget.onDoubleTapDown == null
                     ? null
                     : (TapDownDetails details) {
-                        _tapDownDetails = details;
-                      },
-                onDoubleTap: widget.onDoubleTapDown == null
+                      _tapDownDetails = details;
+                    },
+            onDoubleTap:
+                widget.onDoubleTapDown == null
                     ? null
                     : () {
-                        ZoomViewDetails zoomViewDetails = ZoomViewDetails(
-                          tapDownDetails: _tapDownDetails,
-                          height: height,
-                          width: width,
-                          updateScale: updateScale,
-                          verticalController: verticalController,
-                          horizontalController: horizontalController,
-                          animationController: animationController,
-                          scale: scale,
-                        );
-                        setState(() {
-                          widget.onDoubleTapDown!(zoomViewDetails);
-                        });
-                      },
-                child: FittedBox(
-                  fit: BoxFit.fill,
-                  child: ScrollConfiguration(
-                    behavior: const ScrollBehavior().copyWith(
-                        overscroll: false, dragDevices: <PointerDeviceKind>{}),
-                    child: SizedBox(
-                      height: height * scale,
-                      width: width * scale,
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        physics: const ClampingScrollPhysics(),
-                        controller: widget.scrollAxis == Axis.vertical
-                            ? horizontalController
-                            : verticalController,
-                        scrollDirection: widget.scrollAxis == Axis.vertical
-                            ? Axis.horizontal
-                            : Axis.vertical,
-                        children: [
-                          SizedBox(
-                            width: widget.scrollAxis == Axis.vertical
-                                ? width
-                                : null,
-                            height: widget.scrollAxis == Axis.vertical
-                                ? null
-                                : height,
-                            child: widget.child,
+                      ZoomViewDetails zoomViewDetails = ZoomViewDetails(
+                        tapDownDetails: _tapDownDetails,
+                        height: height,
+                        width: width,
+                        updateScale: updateScale,
+                        verticalController: verticalController,
+                        horizontalController: horizontalController,
+                        animationController: animationController,
+                        scale: scale,
+                      );
+                      setState(() {
+                        widget.onDoubleTapDown!(zoomViewDetails);
+                      });
+                    },
+            child: Column(
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.fill,
+                    child: ScrollConfiguration(
+                      behavior: const ScrollBehavior().copyWith(
+                        overscroll: false,
+                        dragDevices: <PointerDeviceKind>{},
+                      ),
+                      child: SizedBox(
+                        height: height * scale,
+                        width: width * scale,
+                        child: Center(
+                          child: SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            controller:
+                                widget.scrollAxis == Axis.vertical
+                                    ? horizontalController
+                                    : verticalController,
+                            scrollDirection:
+                                widget.scrollAxis == Axis.vertical
+                                    ? Axis.horizontal
+                                    : Axis.vertical,
+                            child: SizedBox(
+                              width:
+                                  widget.scrollAxis == Axis.vertical
+                                      ? width
+                                      : null,
+                              height:
+                                  widget.scrollAxis == Axis.vertical
+                                      ? null
+                                      : height,
+                              child: widget.child,
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
-        ),
-      ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -334,15 +368,24 @@ final class ZoomViewGestureHandler {
   final Duration duration;
   late ZoomViewDetails zoomViewDetails;
   void Function()? _animationListener;
-  ZoomViewGestureHandler(
-      {required this.zoomLevels,
-      this.duration = const Duration(milliseconds: 100)});
+  ZoomViewGestureHandler({
+    required this.zoomLevels,
+    this.duration = const Duration(milliseconds: 100),
+  });
 
   void onDoubleTap(ZoomViewDetails zoomViewDetails) {
-    double newScale = 1 / zoomLevels[index];
-    index++;
-    if (index == zoomLevels.length) {
+    late double newScale;
+    if (zoomViewDetails.scale > 1.0) {
+      newScale = 1;
       index = 0;
+      zoomViewDetails.updateScale(newScale);
+      return;
+    } else {
+      newScale = 1 / zoomLevels[index];
+      index++;
+      if (index == zoomLevels.length) {
+        index = 0;
+      }
     }
 
     final distanceFromOffset = zoomViewDetails.tapDownDetails.localPosition.dy;
@@ -352,14 +395,16 @@ final class ZoomViewGestureHandler {
         (zoomViewDetails.height - distanceFromOffset) / distanceFromOffset;
     final horizontalFocalPointDistanceFromBottomFactor =
         (zoomViewDetails.width - horizontalDistanceFromOffset) /
-            horizontalDistanceFromOffset;
+        horizontalDistanceFromOffset;
     final double oldHeight = zoomViewDetails.height * zoomViewDetails.scale;
     final double oldWidth = zoomViewDetails.width * zoomViewDetails.scale;
     final double newHeight = zoomViewDetails.height * newScale;
     final double newWidth = zoomViewDetails.width * newScale;
-    final verticalOffset = zoomViewDetails.verticalController.offset +
+    final verticalOffset =
+        zoomViewDetails.verticalController.offset +
         (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
-    final horizontalOffset = zoomViewDetails.horizontalController.offset +
+    final horizontalOffset =
+        zoomViewDetails.horizontalController.offset +
         (oldWidth - newWidth) /
             (1 + horizontalFocalPointDistanceFromBottomFactor);
 
@@ -378,8 +423,11 @@ final class ZoomViewGestureHandler {
       };
       animationController.addListener(_animationListener!);
 
-      animationController.animateTo(newScale,
-          duration: duration, curve: Curves.linear);
+      animationController.animateTo(
+        newScale,
+        duration: duration,
+        curve: Curves.linear,
+      );
 
       _ZoomViewAnimateTo(
         scrollController: zoomViewDetails.verticalController,
@@ -414,14 +462,15 @@ class _ZoomViewAnimateTo {
     required this.duration,
     required this.curve,
   }) {
-    controller = AnimationController.unbounded(
-      vsync: scrollController.position.context.vsync,
-      value: scrollController.position.pixels,
-    )
-      ..addListener(() {
-        tick();
-      })
-      ..animateTo(to, duration: duration, curve: curve);
+    controller =
+        AnimationController.unbounded(
+            vsync: scrollController.position.context.vsync,
+            value: scrollController.position.pixels,
+          )
+          ..addListener(() {
+            tick();
+          })
+          ..animateTo(to, duration: duration, curve: curve);
   }
   void tick() {
     scrollController.jumpTo(controller.value);
