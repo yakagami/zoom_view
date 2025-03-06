@@ -6,7 +6,7 @@ Double tap to zoom, min and max scale, scroll a list of images, maintain standar
 
 ## Demo
 
-![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif)
+![](https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif|width=100)
 
 ## Usage
 
