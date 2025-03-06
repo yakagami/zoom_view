@@ -1,5 +1,5 @@
 name: zoom_view
-description: "Widget that allows both zooming and scrolling a ListView or other Scrollables"
+description: "zoom and scroll a ListView or other Scrollables like scrollable_positioned_list"
 version: 0.0.19
 repository: "https://github.com/yakagami/zoom_view"
 
