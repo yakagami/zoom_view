@@ -91,6 +91,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
   //Total distance the trackpad has moved vertically since the last scale start event
   double globalTrackpadDistanceVertical = 0.0;
+
   ///Total distance the trackpad has moved horizontally since the last scale start event
   double globalTrackpadDistanceHorizontal = 0.0;
 
@@ -112,6 +113,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
   ///The distance of the focal point from the bottom of the screen
   late double focalPointDistanceFromBottomFactor;
+
   ///The distance of the focal point from the right of the screen
   late double horizontalFocalPointDistanceFromBottomFactor;
 
@@ -335,6 +337,27 @@ final class ZoomViewDetails {
     required this.animationController,
     required this.scale,
   });
+
+  double getVerticalOffset(double newScale) {
+    final distanceFromOffset = tapDownDetails.localPosition.dy;
+    final focalPointDistanceFromBottomFactor = (height - distanceFromOffset) / distanceFromOffset;
+    final double oldHeight = height * scale;
+    final double newHeight = height * newScale;
+    final verticalOffset = verticalController.offset +
+        (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
+    return verticalOffset;
+  }
+
+  double getHorizontalOffset(double newScale) {
+    final horizontalDistanceFromOffset = tapDownDetails.localPosition.dx;
+    final horizontalFocalPointDistanceFromBottomFactor =
+        (width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
+    final double oldWidth = width * scale;
+    final double newWidth = width * newScale;
+    final horizontalOffset = horizontalController.offset +
+        (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor);
+    return horizontalOffset;
+  }
 }
 
 final class ZoomViewGestureHandler {
@@ -361,20 +384,8 @@ final class ZoomViewGestureHandler {
       }
     }
 
-    final distanceFromOffset = zoomViewDetails.tapDownDetails.localPosition.dy;
-    final horizontalDistanceFromOffset = zoomViewDetails.tapDownDetails.localPosition.dx;
-    final focalPointDistanceFromBottomFactor =
-        (zoomViewDetails.height - distanceFromOffset) / distanceFromOffset;
-    final horizontalFocalPointDistanceFromBottomFactor =
-        (zoomViewDetails.width - horizontalDistanceFromOffset) / horizontalDistanceFromOffset;
-    final double oldHeight = zoomViewDetails.height * zoomViewDetails.scale;
-    final double oldWidth = zoomViewDetails.width * zoomViewDetails.scale;
-    final double newHeight = zoomViewDetails.height * newScale;
-    final double newWidth = zoomViewDetails.width * newScale;
-    final verticalOffset = zoomViewDetails.verticalController.offset +
-        (oldHeight - newHeight) / (1 + focalPointDistanceFromBottomFactor);
-    final horizontalOffset = zoomViewDetails.horizontalController.offset +
-        (oldWidth - newWidth) / (1 + horizontalFocalPointDistanceFromBottomFactor);
+    final verticalOffset = zoomViewDetails.getVerticalOffset(newScale);
+    final horizontalOffset = zoomViewDetails.getHorizontalOffset(newScale);
 
     AnimationController animationController = zoomViewDetails.animationController;
 
@@ -500,7 +511,6 @@ final class _TouchHandler {
     _drag = null;
   }
 }
-
 
 double _clampDouble(double x, double min, double max) {
   if (x < min) {
