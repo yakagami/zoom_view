@@ -31,6 +31,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      //wrap with Expanded if in a Column or similar
       body: ZoomListView(
         child: ListView.builder(
             controller: controller,
