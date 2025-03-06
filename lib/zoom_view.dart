@@ -118,7 +118,6 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
   late TapDownDetails _tapDownDetails;
 
   void updateScale(double scale) {
-    print("updating scale: $scale");
     setState(() {
       this.scale = scale;
       lastScale = scale;
@@ -351,12 +350,9 @@ final class ZoomViewGestureHandler {
 
   void onDoubleTap(ZoomViewDetails zoomViewDetails) {
     late double newScale;
-    //If scale is greater than 1.0, immediately jump back to 1.0
     if (zoomViewDetails.scale > 1.0 && 1 == 1) {
       newScale = 1;
       index = 0;
-      //zoomViewDetails.updateScale(newScale);
-      //return;
     } else {
       newScale = 1 / zoomLevels[index];
       index++;
