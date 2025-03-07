@@ -223,7 +223,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 });
                 verticalController.jumpTo(verticalOffset);
                 horizontalController.jumpTo(horizontalOffset);
-                
+
               } else {
                 final double correctedDelta = details.focalPointDelta.dy * scale;
                 final Offset correctedOffset = details.focalPoint * scale;
@@ -292,18 +292,18 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 Expanded(
                   child: FittedBox(
                     fit: BoxFit.fill,
-                    child: ScrollConfiguration(
-                      behavior: const ScrollBehavior().copyWith(
-                        overscroll: false,
-                        //Disable all inputs on the list as we will handle them
-                        //ourselves using the gesture detector and scroll controllers
-                        dragDevices: <PointerDeviceKind>{},
-                        scrollbars: false,
-                      ),
-                      child: SizedBox(
-                        height: height * scale,
-                        width: width * scale,
-                        child: Center(
+                    child: SizedBox(
+                      height: height * scale,
+                      width: width * scale,
+                      child: Center(
+                        child: ScrollConfiguration(
+                          behavior: const ScrollBehavior().copyWith(
+                            overscroll: false,
+                            //Disable all inputs on the list as we will handle them
+                            //ourselves using the gesture detector and scroll controllers
+                            dragDevices: <PointerDeviceKind>{},
+                            scrollbars: false,
+                          ),
                           child: SingleChildScrollView(
                             physics: const ClampingScrollPhysics(),
                             controller: widget.scrollAxis == Axis.vertical
