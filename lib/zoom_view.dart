@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
-
 ///Wrapper for [ZoomView] that handles the controller automatically
 class ZoomListView extends StatefulWidget {
   final ListView child;
@@ -188,7 +187,6 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
               //If the trackpad has not moved enough to determine the
               //gesture type, then wait for it to move more
               if (trackPadState == TrackPadState.waiting) {
-                //If the scale is not 1.0, then the user is scaling
                 if (details.scale != 1.0) {
                   trackPadState = TrackPadState.scale;
                 } else {
@@ -209,21 +207,18 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 }
               } else if (details.pointerCount > 1 && trackPadState == TrackPadState.none ||
                   trackPadState == TrackPadState.scale) {
-
                 final newScale = _clampDouble(
                     lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
                 final verticalOffset =
                     verticalController.position.pixels + (scale - newScale) * localFocalPoint.dy;
                 final horizontalOffset =
                     horizontalController.position.pixels + (scale - newScale) * localFocalPoint.dx;
-
                 //This is the main logic to actually perform the scaling
                 setState(() {
                   scale = newScale;
                 });
                 verticalController.jumpTo(verticalOffset);
                 horizontalController.jumpTo(horizontalOffset);
-
               } else {
                 final double correctedDelta = details.focalPointDelta.dy * scale;
                 final Offset correctedOffset = details.focalPoint * scale;
@@ -290,6 +285,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
             child: Column(
               children: [
                 Expanded(
+                  //When scale decreases, the SizedBox will shrink and the FittedBox
+                  //will scale the child to fit the maximum constraints of the ZoomView
                   child: FittedBox(
                     fit: BoxFit.fill,
                     child: SizedBox(
