@@ -209,8 +209,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                     _lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
                 final verticalOffset =
                     _verticalController.position.pixels + (_scale - newScale) * _localFocalPoint.dy;
-                final horizontalOffset =
-                    _horizontalController.position.pixels + (_scale - newScale) * _localFocalPoint.dx;
+                final horizontalOffset = _horizontalController.position.pixels +
+                    (_scale - newScale) * _localFocalPoint.dx;
                 //This is the main logic to actually perform the scaling
                 setState(() {
                   _scale = newScale;
