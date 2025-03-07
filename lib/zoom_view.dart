@@ -333,6 +333,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 ///the PointerDeviceKind is not a trackpad
 enum TrackPadState { none, waiting, pan, scale }
 
+///Details needed to perform a double tap zoom
 final class ZoomViewDetails {
   final TapDownDetails tapDownDetails;
   final double height;
