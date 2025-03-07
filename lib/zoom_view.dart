@@ -82,7 +82,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
       ..addListener(() {
         updateScale(animationController.value);
       });
-      
+
     //The controllers do not attach until after the first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       verticalAnimationController =
@@ -139,6 +139,9 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
   late TapDownDetails _tapDownDetails;
 
+  ///The focal point of pointers at the start of a scale event
+  late Offset localFocalPoint;
+
   void updateScale(double scale) {
     setState(() {
       this.scale = scale;
@@ -174,6 +177,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 );
                 verticalTouchHandler.handleDragStart(dragDetails);
                 horizontalTouchHandler.handleDragStart(dragDetails);
+              }else{
+                localFocalPoint = details.localFocalPoint;
               }
             },
             onScaleUpdate: (ScaleUpdateDetails details) {
@@ -204,9 +209,9 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 final newScale = _clampDouble(
                     lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
                 final verticalOffset = verticalController.position.pixels +
-                    (scale - newScale) * details.localFocalPoint.dy;
+                    (scale - newScale) * localFocalPoint.dy;
                 final horizontalOffset = horizontalController.position.pixels +
-                    (scale - newScale) * details.localFocalPoint.dx;
+                    (scale - newScale) * localFocalPoint.dx;
 
                 setState(() {
                   scale = newScale;
@@ -214,8 +219,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
                 verticalController.jumpTo(verticalOffset);
                 horizontalController.jumpTo(horizontalOffset);
-              } else if (trackPadState == TrackPadState.none ||
-                  trackPadState == TrackPadState.pan) {
+              } else {
                 final double correctedDelta = details.focalPointDelta.dy * scale;
                 final Offset correctedOffset = details.focalPoint * scale;
                 final time = details.sourceTimeStamp!;
@@ -289,6 +293,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                         //Disable all inputs on the list as we will handle them
                         //ourselves using the gesture detector and scroll controllers
                         dragDevices: <PointerDeviceKind>{},
+                        scrollbars: false,
                       ),
                       child: SizedBox(
                         height: height * scale,
