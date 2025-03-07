@@ -209,6 +209,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 }
               } else if (details.pointerCount > 1 && trackPadState == TrackPadState.none ||
                   trackPadState == TrackPadState.scale) {
+
                 final newScale = _clampDouble(
                     lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
                 final verticalOffset =
@@ -216,12 +217,13 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 final horizontalOffset =
                     horizontalController.position.pixels + (scale - newScale) * localFocalPoint.dx;
 
+                //This is the main logic to actually perform the scaling
                 setState(() {
                   scale = newScale;
                 });
-
                 verticalController.jumpTo(verticalOffset);
                 horizontalController.jumpTo(horizontalOffset);
+                
               } else {
                 final double correctedDelta = details.focalPointDelta.dy * scale;
                 final Offset correctedOffset = details.focalPoint * scale;
