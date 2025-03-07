@@ -78,12 +78,16 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
     }
     verticalTouchHandler = _TouchHandler(controller: verticalController);
     horizontalTouchHandler = _TouchHandler(controller: horizontalController);
-    animationController = AnimationController.unbounded(vsync: this);
+    animationController = AnimationController.unbounded(vsync: this)
+      ..addListener(() {
+        updateScale(animationController.value);
+      });
     super.initState();
   }
 
   ///The current scale of the ZoomView
   double scale = 1;
+
   ///The scale of the ZoomView before the last scale update event
   double lastScale = 1;
 
@@ -335,7 +339,6 @@ final class ZoomViewGestureHandler {
   final List<double> zoomLevels;
   final Duration duration;
   late ZoomViewDetails zoomViewDetails;
-  void Function()? _animationListener;
   ZoomViewGestureHandler({
     required this.zoomLevels,
     this.duration = const Duration(milliseconds: 100),
@@ -359,17 +362,8 @@ final class ZoomViewGestureHandler {
 
     final animationController = zoomViewDetails.animationController;
 
-    if (_animationListener != null) {
-      animationController.removeListener(_animationListener!);
-    }
-
     if (duration != const Duration(milliseconds: 0)) {
       animationController.value = zoomViewDetails.scale;
-
-      _animationListener = () {
-        zoomViewDetails.updateScale(animationController.value);
-      };
-      animationController.addListener(_animationListener!);
 
       animationController.animateTo(
         newScale,
@@ -415,12 +409,9 @@ class _ZoomViewAnimateTo {
       value: scrollController.position.pixels,
     )
       ..addListener(() {
-        tick();
+        scrollController.jumpTo(controller.value);
       })
       ..animateTo(to, duration: duration, curve: curve);
-  }
-  void tick() {
-    scrollController.jumpTo(controller.value);
   }
 }
 
