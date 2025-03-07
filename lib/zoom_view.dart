@@ -151,7 +151,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
 
   void _updateScale(double scale) {
     setState(() {
-      this._scale = scale;
+      _scale = scale;
       _lastScale = scale;
     });
   }
