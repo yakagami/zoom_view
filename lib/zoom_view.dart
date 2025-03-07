@@ -71,31 +71,31 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   @override
   void initState() {
     if (widget.scrollAxis == Axis.vertical) {
-      verticalController = widget.controller;
-      horizontalController = ScrollController();
+      _verticalController = widget.controller;
+      _horizontalController = ScrollController();
     } else {
-      verticalController = ScrollController();
-      horizontalController = widget.controller;
+      _verticalController = ScrollController();
+      _horizontalController = widget.controller;
     }
-    verticalTouchHandler = _TouchHandler(controller: verticalController);
-    horizontalTouchHandler = _TouchHandler(controller: horizontalController);
-    animationController = AnimationController.unbounded(vsync: this)
+    _verticalTouchHandler = _TouchHandler(controller: _verticalController);
+    _horizontalTouchHandler = _TouchHandler(controller: _horizontalController);
+    _animationController = AnimationController.unbounded(vsync: this)
       ..addListener(() {
-        updateScale(animationController.value);
+        _updateScale(_animationController.value);
       });
 
     //The controllers do not attach until after the first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      verticalAnimationController =
-          AnimationController.unbounded(vsync: verticalController.position.context.vsync)
+      _verticalAnimationController =
+          AnimationController.unbounded(vsync: _verticalController.position.context.vsync)
             ..addListener(() {
-              verticalController.jumpTo(verticalAnimationController.value);
+              _verticalController.jumpTo(_verticalAnimationController.value);
             });
 
-      horizontalAnimationController =
-          AnimationController.unbounded(vsync: horizontalController.position.context.vsync)
+      _horizontalAnimationController =
+          AnimationController.unbounded(vsync: _horizontalController.position.context.vsync)
             ..addListener(() {
-              horizontalController.jumpTo(horizontalAnimationController.value);
+              _horizontalController.jumpTo(_horizontalAnimationController.value);
             });
     });
 
@@ -103,50 +103,48 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   }
 
   ///The current scale of the ZoomView
-  double scale = 1;
+  double _scale = 1;
 
   ///The scale of the ZoomView before the last scale update event
-  double lastScale = 1;
+  double _lastScale = 1;
 
   ///Used for trackpad pointerEvents to determine if the user is panning or scaling
-  late TrackPadState trackPadState;
+  late TrackPadState _trackPadState;
 
   ///Total distance the trackpad has moved vertically since the last scale start event
-  double globalTrackpadDistanceVertical = 0.0;
+  double _globalTrackpadDistanceVertical = 0.0;
 
   ///Total distance the trackpad has moved horizontally since the last scale start event
-  double globalTrackpadDistanceHorizontal = 0.0;
-
-  late PointerDeviceKind pointerDeviceKind;
+  double _globalTrackpadDistanceHorizontal = 0.0;
 
   ///Used to by double tap to animate to a new scale
-  late final AnimationController animationController;
+  late final AnimationController _animationController;
 
   ///Used by double tap to animate the vertical scroll position
-  late final AnimationController verticalAnimationController;
+  late final AnimationController _verticalAnimationController;
 
   ///Used by double tap to animate the horizontal scroll position
-  late final AnimationController horizontalAnimationController;
+  late final AnimationController _horizontalAnimationController;
 
-  late final ScrollController verticalController;
-  late final ScrollController horizontalController;
+  late final ScrollController _verticalController;
+  late final ScrollController _horizontalController;
 
-  late final _TouchHandler verticalTouchHandler;
-  late final _TouchHandler horizontalTouchHandler;
+  late final _TouchHandler _verticalTouchHandler;
+  late final _TouchHandler _horizontalTouchHandler;
 
-  final VelocityTracker tracker = VelocityTracker.withKind(
+  final VelocityTracker _tracker = VelocityTracker.withKind(
     PointerDeviceKind.touch,
   );
 
   late TapDownDetails _tapDownDetails;
 
   ///The focal point of pointers at the start of a scale event
-  late Offset localFocalPoint;
+  late Offset _localFocalPoint;
 
-  void updateScale(double scale) {
+  void _updateScale(double scale) {
     setState(() {
-      this.scale = scale;
-      lastScale = scale;
+      this._scale = scale;
+      _lastScale = scale;
     });
   }
 
@@ -160,12 +158,12 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (PointerDownEvent event) {
-            trackPadState = event.kind == PointerDeviceKind.trackpad
+            _trackPadState = event.kind == PointerDeviceKind.trackpad
                 ? TrackPadState.waiting
                 : TrackPadState.none;
           },
           onPointerPanZoomStart: (PointerPanZoomStartEvent event) {
-            trackPadState = event.kind == PointerDeviceKind.trackpad
+            _trackPadState = event.kind == PointerDeviceKind.trackpad
                 ? TrackPadState.waiting
                 : TrackPadState.none;
           },
@@ -177,76 +175,76 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                   globalPosition: details.focalPoint,
                   kind: PointerDeviceKind.touch,
                 );
-                verticalTouchHandler.handleDragStart(dragDetails);
-                horizontalTouchHandler.handleDragStart(dragDetails);
+                _verticalTouchHandler.handleDragStart(dragDetails);
+                _horizontalTouchHandler.handleDragStart(dragDetails);
               } else {
-                localFocalPoint = details.localFocalPoint;
+                _localFocalPoint = details.localFocalPoint;
               }
             },
             onScaleUpdate: (ScaleUpdateDetails details) {
               //If the trackpad has not moved enough to determine the
               //gesture type, then wait for it to move more
-              if (trackPadState == TrackPadState.waiting) {
+              if (_trackPadState == TrackPadState.waiting) {
                 if (details.scale != 1.0) {
-                  trackPadState = TrackPadState.scale;
+                  _trackPadState = TrackPadState.scale;
                 } else {
-                  final double correctedDeltaVertical = details.focalPointDelta.dy * scale;
-                  globalTrackpadDistanceVertical += correctedDeltaVertical;
-                  final correctedDeltaHorizontal = details.focalPointDelta.dx * scale;
-                  globalTrackpadDistanceHorizontal += correctedDeltaHorizontal;
-                  if (globalTrackpadDistanceVertical.abs() > kPrecisePointerPanSlop ||
-                      globalTrackpadDistanceHorizontal.abs() > kPrecisePointerPanSlop) {
-                    trackPadState = TrackPadState.pan;
+                  final double correctedDeltaVertical = details.focalPointDelta.dy * _scale;
+                  _globalTrackpadDistanceVertical += correctedDeltaVertical;
+                  final correctedDeltaHorizontal = details.focalPointDelta.dx * _scale;
+                  _globalTrackpadDistanceHorizontal += correctedDeltaHorizontal;
+                  if (_globalTrackpadDistanceVertical.abs() > kPrecisePointerPanSlop ||
+                      _globalTrackpadDistanceHorizontal.abs() > kPrecisePointerPanSlop) {
+                    _trackPadState = TrackPadState.pan;
                     DragStartDetails dragDetails = DragStartDetails(
                       globalPosition: details.focalPoint,
                       kind: PointerDeviceKind.touch,
                     );
-                    verticalTouchHandler.handleDragStart(dragDetails);
-                    horizontalTouchHandler.handleDragStart(dragDetails);
+                    _verticalTouchHandler.handleDragStart(dragDetails);
+                    _horizontalTouchHandler.handleDragStart(dragDetails);
                   }
                 }
-              } else if (details.pointerCount > 1 && trackPadState == TrackPadState.none ||
-                  trackPadState == TrackPadState.scale) {
+              } else if (details.pointerCount > 1 && _trackPadState == TrackPadState.none ||
+                  _trackPadState == TrackPadState.scale) {
                 final newScale = _clampDouble(
-                    lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
+                    _lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
                 final verticalOffset =
-                    verticalController.position.pixels + (scale - newScale) * localFocalPoint.dy;
+                    _verticalController.position.pixels + (_scale - newScale) * _localFocalPoint.dy;
                 final horizontalOffset =
-                    horizontalController.position.pixels + (scale - newScale) * localFocalPoint.dx;
+                    _horizontalController.position.pixels + (_scale - newScale) * _localFocalPoint.dx;
                 //This is the main logic to actually perform the scaling
                 setState(() {
-                  scale = newScale;
+                  _scale = newScale;
                 });
-                verticalController.jumpTo(verticalOffset);
-                horizontalController.jumpTo(horizontalOffset);
+                _verticalController.jumpTo(verticalOffset);
+                _horizontalController.jumpTo(horizontalOffset);
               } else {
-                final double correctedDelta = details.focalPointDelta.dy * scale;
-                final Offset correctedOffset = details.focalPoint * scale;
+                final double correctedDelta = details.focalPointDelta.dy * _scale;
+                final Offset correctedOffset = details.focalPoint * _scale;
                 final time = details.sourceTimeStamp!;
-                tracker.addPosition(time, correctedOffset);
+                _tracker.addPosition(time, correctedOffset);
                 final DragUpdateDetails verticalDetails = DragUpdateDetails(
                   globalPosition: correctedOffset,
                   sourceTimeStamp: time,
                   primaryDelta: correctedDelta,
                   delta: Offset(0.0, correctedDelta),
                 );
-                final double horizontalCorrectedDelta = details.focalPointDelta.dx * scale;
+                final double horizontalCorrectedDelta = details.focalPointDelta.dx * _scale;
                 final DragUpdateDetails horizontalDetails = DragUpdateDetails(
                   globalPosition: correctedOffset,
                   sourceTimeStamp: time,
                   primaryDelta: horizontalCorrectedDelta,
                   delta: Offset(horizontalCorrectedDelta, 0.0),
                 );
-                verticalTouchHandler.handleDragUpdate(verticalDetails);
-                horizontalTouchHandler.handleDragUpdate(horizontalDetails);
+                _verticalTouchHandler.handleDragUpdate(verticalDetails);
+                _horizontalTouchHandler.handleDragUpdate(horizontalDetails);
               }
             },
             onScaleEnd: (ScaleEndDetails details) {
-              trackPadState = TrackPadState.none;
-              globalTrackpadDistanceVertical = 0.0;
-              globalTrackpadDistanceHorizontal = 0.0;
-              lastScale = scale;
-              Offset velocity = tracker.getVelocity().pixelsPerSecond;
+              _trackPadState = TrackPadState.none;
+              _globalTrackpadDistanceVertical = 0.0;
+              _globalTrackpadDistanceHorizontal = 0.0;
+              _lastScale = _scale;
+              Offset velocity = _tracker.getVelocity().pixelsPerSecond;
               DragEndDetails endDetails = DragEndDetails(
                 velocity: Velocity(pixelsPerSecond: Offset(0.0, velocity.dy)),
                 primaryVelocity: velocity.dy,
@@ -255,8 +253,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 velocity: Velocity(pixelsPerSecond: Offset(velocity.dx, 0.0)),
                 primaryVelocity: velocity.dx,
               );
-              verticalTouchHandler.handleDragEnd(endDetails);
-              horizontalTouchHandler.handleDragEnd(hEndDetails);
+              _verticalTouchHandler.handleDragEnd(endDetails);
+              _horizontalTouchHandler.handleDragEnd(hEndDetails);
             },
             onDoubleTapDown: widget.onDoubleTapDown == null
                 ? null
@@ -269,14 +267,14 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                     ZoomViewDetails zoomViewDetails = ZoomViewDetails(
                       height: height,
                       width: width,
-                      scale: scale,
-                      updateScale: updateScale,
+                      scale: _scale,
+                      updateScale: _updateScale,
                       tapDownDetails: _tapDownDetails,
-                      verticalController: verticalController,
-                      horizontalController: horizontalController,
-                      animationController: animationController,
-                      verticalAnimationController: verticalAnimationController,
-                      horizontalAnimationController: horizontalAnimationController,
+                      verticalController: _verticalController,
+                      horizontalController: _horizontalController,
+                      animationController: _animationController,
+                      verticalAnimationController: _verticalAnimationController,
+                      horizontalAnimationController: _horizontalAnimationController,
                     );
                     setState(() {
                       widget.onDoubleTapDown!(zoomViewDetails);
@@ -290,8 +288,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                   child: FittedBox(
                     fit: BoxFit.fill,
                     child: SizedBox(
-                      height: height * scale,
-                      width: width * scale,
+                      height: height * _scale,
+                      width: width * _scale,
                       child: Center(
                         child: ScrollConfiguration(
                           behavior: const ScrollBehavior().copyWith(
@@ -304,8 +302,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                           child: SingleChildScrollView(
                             physics: const ClampingScrollPhysics(),
                             controller: widget.scrollAxis == Axis.vertical
-                                ? horizontalController
-                                : verticalController,
+                                ? _horizontalController
+                                : _verticalController,
                             scrollDirection: widget.scrollAxis == Axis.vertical
                                 ? Axis.horizontal
                                 : Axis.vertical,
@@ -358,22 +356,24 @@ final class ZoomViewDetails {
     required this.scale,
   });
 
+  ///Calculates the new vertical offset for the scroll controller
   double getVerticalOffset(double newScale) {
     return verticalController.position.pixels +
         (scale - newScale) * tapDownDetails.localPosition.dy;
   }
 
+  ///Calculates the new horizontal offset for the scroll controller
   double getHorizontalOffset(double newScale) {
     return horizontalController.position.pixels +
         (scale - newScale) * tapDownDetails.localPosition.dx;
   }
 }
 
+///Handles the logic for a double tap zoom via the [ZoomView.onDoubleTapDown] callback
 final class ZoomViewGestureHandler {
-  int index = 0;
+  int _index = 0;
   final List<double> zoomLevels;
   final Duration duration;
-  late ZoomViewDetails zoomViewDetails;
   ZoomViewGestureHandler({
     required this.zoomLevels,
     this.duration = const Duration(milliseconds: 100),
@@ -383,12 +383,12 @@ final class ZoomViewGestureHandler {
     late double newScale;
     if (zoomViewDetails.scale > 1.0 && 1 == 1) {
       newScale = 1;
-      index = 0;
+      _index = 0;
     } else {
-      newScale = 1 / zoomLevels[index];
-      index++;
-      if (index == zoomLevels.length) {
-        index = 0;
+      newScale = 1 / zoomLevels[_index];
+      _index++;
+      if (_index == zoomLevels.length) {
+        _index = 0;
       }
     }
 
