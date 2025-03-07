@@ -53,7 +53,7 @@ class ZoomView extends StatefulWidget {
     this.scrollAxis = Axis.vertical,
   });
 
-  ///Callback invoked after a double tap down. 
+  ///Callback invoked after a double tap down.
   ///This is set by the user but will generally be [ZoomViewGestureHandler.onDoubleTap] or null.
   final void Function(ZoomViewDetails details)? onDoubleTapDown;
   final Widget child;
@@ -61,8 +61,10 @@ class ZoomView extends StatefulWidget {
 
   ///scrollAxis must be set to Axis.horizontal if the Scrollable is horizontal
   final Axis scrollAxis;
+
   ///The maximum scale that the ZoomView can be zoomed to. Set to double.infinity to allow infinite zoom in
   final double maxScale;
+
   ///The minimum scale that the ZoomView can be zoomed to. Set to 0 to allow infinite zoom out
   final double minScale;
 
@@ -101,7 +103,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
               _horizontalController.jumpTo(_horizontalAnimationController.value);
             });
     });
- 
+
     _maxScale = 1 / widget.maxScale;
     _minScale = 1 / widget.minScale;
 
@@ -214,8 +216,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 }
               } else if (details.pointerCount > 1 && _trackPadState == TrackPadState.none ||
                   _trackPadState == TrackPadState.scale) {
-                final newScale = _clampDouble(
-                    _lastScale / details.scale, _maxScale, _minScale);
+                final newScale = _clampDouble(_lastScale / details.scale, _maxScale, _minScale);
                 final verticalOffset =
                     _verticalController.position.pixels + (_scale - newScale) * _localFocalPoint.dy;
                 final horizontalOffset = _horizontalController.position.pixels +
