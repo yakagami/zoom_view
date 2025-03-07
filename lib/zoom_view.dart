@@ -157,6 +157,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
         double width = constraints.maxWidth;
         //The listener is only needed for trackpad events
         return Listener(
+          behavior: HitTestBehavior.translucent,
           onPointerDown: (PointerDownEvent event) {
             trackPadState = event.kind == PointerDeviceKind.trackpad
                 ? TrackPadState.waiting
