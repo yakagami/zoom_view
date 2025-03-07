@@ -371,14 +371,14 @@ final class ZoomViewGestureHandler {
         curve: Curves.linear,
       );
 
-      _ZoomViewAnimateTo(
+      ZoomViewAnimateTo(
         scrollController: zoomViewDetails.verticalController,
         to: verticalOffset,
         duration: duration,
         curve: Curves.linear,
       );
 
-      _ZoomViewAnimateTo(
+      ZoomViewAnimateTo(
         scrollController: zoomViewDetails.horizontalController,
         to: horizontalOffset,
         duration: duration,
@@ -392,13 +392,13 @@ final class ZoomViewGestureHandler {
   }
 }
 
-class _ZoomViewAnimateTo {
+final class ZoomViewAnimateTo {
   final ScrollController scrollController;
   final double to;
   final Duration duration;
   final Curve curve;
   late AnimationController controller;
-  _ZoomViewAnimateTo({
+  ZoomViewAnimateTo({
     required this.scrollController,
     required this.to,
     required this.duration,
