@@ -120,10 +120,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   late TrackPadState _trackPadState;
 
   ///Total distance the trackpad has moved vertically since the last scale start event
-  double _globalTrackpadDistanceVertical = 0.0;
-
-  ///Total distance the trackpad has moved horizontally since the last scale start event
-  double _globalTrackpadDistanceHorizontal = 0.0;
+  Size _globalTrackpadDistance = Size.zero;
 
   ///Used to by double tap to animate to a new scale
   late final AnimationController _animationController;
@@ -199,12 +196,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 if (details.scale != 1.0) {
                   _trackPadState = TrackPadState.scale;
                 } else {
-                  final double correctedDeltaVertical = details.focalPointDelta.dy * _scale;
-                  _globalTrackpadDistanceVertical += correctedDeltaVertical;
-                  final correctedDeltaHorizontal = details.focalPointDelta.dx * _scale;
-                  _globalTrackpadDistanceHorizontal += correctedDeltaHorizontal;
-                  if (_globalTrackpadDistanceVertical.abs() > kPrecisePointerPanSlop ||
-                      _globalTrackpadDistanceHorizontal.abs() > kPrecisePointerPanSlop) {
+                  _globalTrackpadDistance += details.focalPointDelta * _scale;
+                  if (_globalTrackpadDistance.longestSide > kPrecisePointerPanSlop) {
                     _trackPadState = TrackPadState.pan;
                     DragStartDetails dragDetails = DragStartDetails(
                       globalPosition: details.focalPoint,
@@ -228,22 +221,21 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 _verticalController.jumpTo(verticalOffset);
                 _horizontalController.jumpTo(horizontalOffset);
               } else {
-                final double correctedDelta = details.focalPointDelta.dy * _scale;
-                final Offset correctedOffset = details.focalPoint * _scale;
+                final correctedDelta = details.focalPointDelta * _scale;
+                final correctedOffset = details.focalPoint * _scale;
                 final time = details.sourceTimeStamp!;
                 _tracker.addPosition(time, correctedOffset);
                 final DragUpdateDetails verticalDetails = DragUpdateDetails(
                   globalPosition: correctedOffset,
                   sourceTimeStamp: time,
-                  primaryDelta: correctedDelta,
-                  delta: Offset(0.0, correctedDelta),
+                  primaryDelta: correctedDelta.dy,
+                  delta: Offset(0.0, correctedDelta.dy),
                 );
-                final double horizontalCorrectedDelta = details.focalPointDelta.dx * _scale;
                 final DragUpdateDetails horizontalDetails = DragUpdateDetails(
                   globalPosition: correctedOffset,
                   sourceTimeStamp: time,
-                  primaryDelta: horizontalCorrectedDelta,
-                  delta: Offset(horizontalCorrectedDelta, 0.0),
+                  primaryDelta: correctedDelta.dx,
+                  delta: Offset(correctedDelta.dx, 0.0),
                 );
                 _verticalTouchHandler.handleDragUpdate(verticalDetails);
                 _horizontalTouchHandler.handleDragUpdate(horizontalDetails);
@@ -251,8 +243,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
             },
             onScaleEnd: (ScaleEndDetails details) {
               _trackPadState = TrackPadState.none;
-              _globalTrackpadDistanceVertical = 0.0;
-              _globalTrackpadDistanceHorizontal = 0.0;
+              _globalTrackpadDistance = Size.zero;
               _lastScale = _scale;
               Offset velocity = _tracker.getVelocity().pixelsPerSecond;
               DragEndDetails endDetails = DragEndDetails(
