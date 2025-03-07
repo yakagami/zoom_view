@@ -66,7 +66,7 @@ class ZoomView extends StatefulWidget {
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin {
+class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   @override
   void initState() {
     if (widget.scrollAxis == Axis.vertical) {
@@ -82,6 +82,22 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
       ..addListener(() {
         updateScale(animationController.value);
       });
+      
+    //The controllers do not attach until after the first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      verticalAnimationController =
+          AnimationController.unbounded(vsync: verticalController.position.context.vsync)
+            ..addListener(() {
+              verticalController.jumpTo(verticalAnimationController.value);
+            });
+
+      horizontalAnimationController =
+          AnimationController.unbounded(vsync: horizontalController.position.context.vsync)
+            ..addListener(() {
+              horizontalController.jumpTo(horizontalAnimationController.value);
+            });
+    });
+
     super.initState();
   }
 
@@ -102,9 +118,14 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
   late PointerDeviceKind pointerDeviceKind;
 
-  ///Used to by double tap to animate to a new scale.
-  ///Does not animate the scroll positions
+  ///Used to by double tap to animate to a new scale
   late final AnimationController animationController;
+
+  ///Used by double tap to animate the vertical scroll position
+  late final AnimationController verticalAnimationController;
+
+  ///Used by double tap to animate the horizontal scroll position
+  late final AnimationController horizontalAnimationController;
 
   late final ScrollController verticalController;
   late final ScrollController horizontalController;
@@ -242,14 +263,16 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                 ? null
                 : () {
                     ZoomViewDetails zoomViewDetails = ZoomViewDetails(
-                      tapDownDetails: _tapDownDetails,
                       height: height,
                       width: width,
+                      scale: scale,
                       updateScale: updateScale,
+                      tapDownDetails: _tapDownDetails,
                       verticalController: verticalController,
                       horizontalController: horizontalController,
                       animationController: animationController,
-                      scale: scale,
+                      verticalAnimationController: verticalAnimationController,
+                      horizontalAnimationController: horizontalAnimationController,
                     );
                     setState(() {
                       widget.onDoubleTapDown!(zoomViewDetails);
@@ -311,6 +334,8 @@ final class ZoomViewDetails {
   final ScrollController verticalController;
   final ScrollController horizontalController;
   final AnimationController animationController;
+  final AnimationController verticalAnimationController;
+  final AnimationController horizontalAnimationController;
   final double scale;
   ZoomViewDetails({
     required this.verticalController,
@@ -320,6 +345,8 @@ final class ZoomViewDetails {
     required this.width,
     required this.updateScale,
     required this.animationController,
+    required this.verticalAnimationController,
+    required this.horizontalAnimationController,
     required this.scale,
   });
 
@@ -360,58 +387,35 @@ final class ZoomViewGestureHandler {
     final verticalOffset = zoomViewDetails.getVerticalOffset(newScale);
     final horizontalOffset = zoomViewDetails.getHorizontalOffset(newScale);
 
-    final animationController = zoomViewDetails.animationController;
-
     if (duration != const Duration(milliseconds: 0)) {
-      animationController.value = zoomViewDetails.scale;
+      zoomViewDetails.animationController
+        ..value = zoomViewDetails.scale
+        ..animateTo(
+          newScale,
+          duration: duration,
+          curve: Curves.linear,
+        );
 
-      animationController.animateTo(
-        newScale,
-        duration: duration,
-        curve: Curves.linear,
-      );
+      zoomViewDetails.verticalAnimationController
+        ..value = zoomViewDetails.verticalController.position.pixels
+        ..animateTo(
+          verticalOffset,
+          duration: duration,
+          curve: Curves.linear,
+        );
 
-      ZoomViewAnimateTo(
-        scrollController: zoomViewDetails.verticalController,
-        to: verticalOffset,
-        duration: duration,
-        curve: Curves.linear,
-      );
-
-      ZoomViewAnimateTo(
-        scrollController: zoomViewDetails.horizontalController,
-        to: horizontalOffset,
-        duration: duration,
-        curve: Curves.linear,
-      );
+      zoomViewDetails.horizontalAnimationController
+        ..value = zoomViewDetails.horizontalController.position.pixels
+        ..animateTo(
+          horizontalOffset,
+          duration: duration,
+          curve: Curves.linear,
+        );
     } else {
       zoomViewDetails.updateScale(newScale);
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
       zoomViewDetails.verticalController.jumpTo(verticalOffset);
     }
-  }
-}
-
-final class ZoomViewAnimateTo {
-  final ScrollController scrollController;
-  final double to;
-  final Duration duration;
-  final Curve curve;
-  late AnimationController controller;
-  ZoomViewAnimateTo({
-    required this.scrollController,
-    required this.to,
-    required this.duration,
-    required this.curve,
-  }) {
-    controller = AnimationController.unbounded(
-      vsync: scrollController.position.context.vsync,
-      value: scrollController.position.pixels,
-    )
-      ..addListener(() {
-        scrollController.jumpTo(controller.value);
-      })
-      ..animateTo(to, duration: duration, curve: curve);
   }
 }
 
