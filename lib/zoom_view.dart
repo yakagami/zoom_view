@@ -137,8 +137,8 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   late final _TouchHandler _verticalTouchHandler;
   late final _TouchHandler _horizontalTouchHandler;
 
-  late final _maxScale;
-  late final _minScale;
+  late final double _maxScale;
+  late final double _minScale;
 
   final VelocityTracker _tracker = VelocityTracker.withKind(
     PointerDeviceKind.touch,
