@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
+
+///Wrapper for [ZoomView] that handles the controller automatically
 class ZoomListView extends StatefulWidget {
   final ListView child;
   final double minScale;
