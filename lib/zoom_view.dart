@@ -177,7 +177,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 );
                 verticalTouchHandler.handleDragStart(dragDetails);
                 horizontalTouchHandler.handleDragStart(dragDetails);
-              }else{
+              } else {
                 localFocalPoint = details.localFocalPoint;
               }
             },
@@ -208,10 +208,10 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                   trackPadState == TrackPadState.scale) {
                 final newScale = _clampDouble(
                     lastScale / details.scale, 1 / widget.maxScale, 1 / widget.minScale);
-                final verticalOffset = verticalController.position.pixels +
-                    (scale - newScale) * localFocalPoint.dy;
-                final horizontalOffset = horizontalController.position.pixels +
-                    (scale - newScale) * localFocalPoint.dx;
+                final verticalOffset =
+                    verticalController.position.pixels + (scale - newScale) * localFocalPoint.dy;
+                final horizontalOffset =
+                    horizontalController.position.pixels + (scale - newScale) * localFocalPoint.dx;
 
                 setState(() {
                   scale = newScale;
