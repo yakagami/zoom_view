@@ -6,11 +6,13 @@ class ZoomListView extends StatefulWidget {
   final ListView child;
   final double minScale;
   final double maxScale;
+  final bool doubleTapDrag;
   const ZoomListView({
     super.key,
     required this.child,
     this.minScale = 1.0,
     this.maxScale = 4.0,
+    this.doubleTapDrag = false,
   });
 
   @override
@@ -51,6 +53,7 @@ class ZoomView extends StatefulWidget {
     this.minScale = 1.0,
     this.onDoubleTapDown,
     this.scrollAxis = Axis.vertical,
+    this.doubleTapDrag = false,
   });
 
   ///Callback invoked after a double tap down.
@@ -68,13 +71,16 @@ class ZoomView extends StatefulWidget {
   ///The minimum scale that the ZoomView can be zoomed to. Set to 0 to allow infinite zoom out
   final double minScale;
 
+  final bool doubleTapDrag;
+
   @override
   State<ZoomView> createState() => _ZoomViewState();
 }
 
-class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
+class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin {
   @override
   void initState() {
+    super.initState();
     if (widget.scrollAxis == Axis.vertical) {
       _verticalController = widget.controller;
       _horizontalController = ScrollController();
@@ -84,30 +90,22 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
     }
     _verticalTouchHandler = _TouchHandler(controller: _verticalController);
     _horizontalTouchHandler = _TouchHandler(controller: _horizontalController);
-    _animationController = AnimationController.unbounded(vsync: this)
-      ..addListener(() {
-        _updateScale(_animationController.value);
-      });
 
-    //The controllers do not attach until after the first build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _verticalAnimationController =
-          AnimationController.unbounded(vsync: _verticalController.position.context.vsync)
-            ..addListener(() {
-              _verticalController.jumpTo(_verticalAnimationController.value);
-            });
-
-      _horizontalAnimationController =
-          AnimationController.unbounded(vsync: _horizontalController.position.context.vsync)
-            ..addListener(() {
-              _horizontalController.jumpTo(_horizontalAnimationController.value);
-            });
-    });
+    _masterAnimationController = AnimationController(vsync: this);
 
     _maxScale = 1 / widget.maxScale;
     _minScale = 1 / widget.minScale;
+  }
 
-    super.initState();
+  @override
+  void dispose() {
+    _masterAnimationController.dispose();
+    if (widget.scrollAxis == Axis.vertical) {
+      _horizontalController.dispose();
+    } else {
+      _verticalController.dispose();
+    }
+    super.dispose();
   }
 
   ///The current scale of the ZoomView
@@ -122,14 +120,7 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   ///Total distance the trackpad has moved vertically since the last scale start event
   Size _globalTrackpadDistance = Size.zero;
 
-  ///Used to by double tap to animate to a new scale
-  late final AnimationController _animationController;
-
-  ///Used by double tap to animate the vertical scroll position
-  late final AnimationController _verticalAnimationController;
-
-  ///Used by double tap to animate the horizontal scroll position
-  late final AnimationController _horizontalAnimationController;
+  late final AnimationController _masterAnimationController;
 
   late final ScrollController _verticalController;
   late final ScrollController _horizontalController;
@@ -140,11 +131,11 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   late final double _maxScale;
   late final double _minScale;
 
+  Offset? _previousDragPosition;
+
   final VelocityTracker _tracker = VelocityTracker.withKind(
     PointerDeviceKind.touch,
   );
-
-  late TapDownDetails _tapDownDetails;
 
   ///The focal point of pointers at the start of a scale event
   late Offset _localFocalPoint;
@@ -152,6 +143,11 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
   void _updateScale(double scale) {
     setState(() {
       _scale = scale;
+    });
+  }
+
+  void _updateLastScale(double scale) {
+    setState(() {
       _lastScale = scale;
     });
   }
@@ -175,151 +171,214 @@ class _ZoomViewState extends State<ZoomView> with TickerProviderStateMixin {
                 ? TrackPadState.waiting
                 : TrackPadState.none;
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onScaleStart: (ScaleStartDetails details) {
-              if (details.pointerCount == 1) {
-                DragStartDetails dragDetails = DragStartDetails(
-                  globalPosition: details.focalPoint,
-                  kind: PointerDeviceKind.touch,
-                );
-                _verticalTouchHandler.handleDragStart(dragDetails);
-                _horizontalTouchHandler.handleDragStart(dragDetails);
-              } else {
-                _localFocalPoint = details.localFocalPoint;
-              }
+          // This gesture detector is only used for double tap drags and double tap zooms
+          child: RawGestureDetector(
+            gestures: <Type, GestureRecognizerFactory>{
+              TapAndPanGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<TapAndPanGestureRecognizer>(
+                      () => TapAndPanGestureRecognizer(), (
+                TapAndPanGestureRecognizer instance,
+              ) {
+                instance
+                  ..dragStartBehavior = DragStartBehavior.down
+                  ..onTapDown = (TapDragDownDetails details) {}
+                  ..onTapUp = widget.onDoubleTapDown == null
+                      ? null
+                      : (TapDragUpDetails details) {
+                          if (details.consecutiveTapCount > 1) {
+                            final tapDownDetails = TapDownDetails(
+                              globalPosition: details.globalPosition,
+                              localPosition: details.localPosition,
+                              kind: details.kind,
+                            );
+                            ZoomViewDetails zoomViewDetails = ZoomViewDetails(
+                              height: height,
+                              width: width,
+                              scale: _scale,
+                              updateScale: _updateScale,
+                              updateLastScale: _updateLastScale,
+                              tapDownDetails: tapDownDetails,
+                              verticalController: _verticalController,
+                              horizontalController: _horizontalController,
+                              masterAnimationController: _masterAnimationController,
+                            );
+                            setState(() {
+                              widget.onDoubleTapDown!(zoomViewDetails);
+                            });
+                          }
+                        }
+                  ..onDragStart = widget.doubleTapDrag == false
+                      ? null
+                      : (TapDragStartDetails details) {
+                          _previousDragPosition ??= details.localPosition;
+                        }
+                  ..onDragUpdate = widget.doubleTapDrag == false
+                      ? null
+                      : (TapDragUpdateDetails details) {
+                          if (details.consecutiveTapCount >= 1) {
+                            final currentDragPosition = details.localPosition;
+                            final double dx = (_previousDragPosition!.dx - currentDragPosition.dx);
+                            double dy = (_previousDragPosition!.dy - currentDragPosition.dy);
+
+                            if (dx.abs() > dy.abs()) {
+                              // Ignore horizontal drags
+                              return;
+                            }
+                            final newScale = _clampDouble(
+                              //divided by 2 so that dragging from the middle of the screen
+                              //to the bottom results in 2x scale
+                              _lastScale + (dy / (height / 2)),
+                              _maxScale,
+                              _minScale,
+                            );
+                            final verticalOffset = _verticalController.position.pixels +
+                                (_scale - newScale) * details.localPosition.dy;
+                            final horizontalOffset = _horizontalController.position.pixels +
+                                (_scale - newScale) * details.localPosition.dx;
+
+                            setState(() {
+                              _scale = newScale;
+                            });
+
+                            _verticalController.jumpTo(verticalOffset);
+                            _horizontalController.jumpTo(horizontalOffset);
+                          }
+                        }
+                  ..onDragEnd = widget.doubleTapDrag == false
+                      ? null
+                      : (TapDragEndDetails details) {
+                          _previousDragPosition = null;
+                          _lastScale = _scale;
+                        };
+              }),
             },
-            onScaleUpdate: (ScaleUpdateDetails details) {
-              //If the trackpad has not moved enough to determine the
-              //gesture type, then wait for it to move more
-              if (_trackPadState == TrackPadState.waiting) {
-                if (details.scale != 1.0) {
-                  _trackPadState = TrackPadState.scale;
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onScaleStart: (ScaleStartDetails details) {
+                _masterAnimationController.stop();
+                if (details.pointerCount == 1) {
+                  DragStartDetails dragDetails = DragStartDetails(
+                    globalPosition: details.focalPoint,
+                    kind: PointerDeviceKind.touch,
+                  );
+                  _verticalTouchHandler.handleDragStart(dragDetails);
+                  _horizontalTouchHandler.handleDragStart(dragDetails);
                 } else {
-                  _globalTrackpadDistance += details.focalPointDelta * _scale;
-                  if (_globalTrackpadDistance.longestSide > kPrecisePointerPanSlop) {
-                    _trackPadState = TrackPadState.pan;
-                    DragStartDetails dragDetails = DragStartDetails(
-                      globalPosition: details.focalPoint,
-                      kind: PointerDeviceKind.touch,
-                    );
-                    _verticalTouchHandler.handleDragStart(dragDetails);
-                    _horizontalTouchHandler.handleDragStart(dragDetails);
-                  }
+                  _localFocalPoint = details.localFocalPoint;
                 }
-              } else if (details.pointerCount > 1 && _trackPadState == TrackPadState.none ||
-                  _trackPadState == TrackPadState.scale) {
-                final newScale = _clampDouble(_lastScale / details.scale, _maxScale, _minScale);
-                final verticalOffset =
-                    _verticalController.position.pixels + (_scale - newScale) * _localFocalPoint.dy;
-                final horizontalOffset = _horizontalController.position.pixels +
-                    (_scale - newScale) * _localFocalPoint.dx;
-                //This is the main logic to actually perform the scaling
-                setState(() {
-                  _scale = newScale;
-                });
-                _verticalController.jumpTo(verticalOffset);
-                _horizontalController.jumpTo(horizontalOffset);
-              } else {
-                final correctedDelta = details.focalPointDelta * _scale;
-                final correctedOffset = details.focalPoint * _scale;
-                final time = details.sourceTimeStamp!;
-                _tracker.addPosition(time, correctedOffset);
-                final DragUpdateDetails verticalDetails = DragUpdateDetails(
-                  globalPosition: correctedOffset,
-                  sourceTimeStamp: time,
-                  primaryDelta: correctedDelta.dy,
-                  delta: Offset(0.0, correctedDelta.dy),
+              },
+              onScaleUpdate: (ScaleUpdateDetails details) {
+                //If the trackpad has not moved enough to determine the
+                //gesture type, then wait for it to move more
+                if (_trackPadState == TrackPadState.waiting) {
+                  if (details.scale != 1.0) {
+                    _trackPadState = TrackPadState.scale;
+                  } else {
+                    _globalTrackpadDistance += details.focalPointDelta * _scale;
+                    if (_globalTrackpadDistance.longestSide > kPrecisePointerPanSlop) {
+                      _trackPadState = TrackPadState.pan;
+                      DragStartDetails dragDetails = DragStartDetails(
+                        globalPosition: details.focalPoint,
+                        kind: PointerDeviceKind.touch,
+                      );
+                      _verticalTouchHandler.handleDragStart(dragDetails);
+                      _horizontalTouchHandler.handleDragStart(dragDetails);
+                    }
+                  }
+                } else if (details.pointerCount > 1 && _trackPadState == TrackPadState.none ||
+                    _trackPadState == TrackPadState.scale) {
+                  final newScale = _clampDouble(
+                    _lastScale / details.scale,
+                    _maxScale,
+                    _minScale,
+                  );
+                  final verticalOffset = _verticalController.position.pixels +
+                      (_scale - newScale) * _localFocalPoint.dy;
+                  final horizontalOffset = _horizontalController.position.pixels +
+                      (_scale - newScale) * _localFocalPoint.dx;
+                  //This is the main logic to actually perform the scaling
+                  setState(() {
+                    _scale = newScale;
+                  });
+                  _verticalController.jumpTo(verticalOffset);
+                  _horizontalController.jumpTo(horizontalOffset);
+                } else {
+                  final correctedDelta = details.focalPointDelta * _scale;
+                  final correctedOffset = details.focalPoint * _scale;
+                  final time = details.sourceTimeStamp!;
+                  _tracker.addPosition(time, correctedOffset);
+                  final DragUpdateDetails verticalDetails = DragUpdateDetails(
+                    globalPosition: correctedOffset,
+                    sourceTimeStamp: time,
+                    primaryDelta: correctedDelta.dy,
+                    delta: Offset(0.0, correctedDelta.dy),
+                  );
+                  final DragUpdateDetails horizontalDetails = DragUpdateDetails(
+                    globalPosition: correctedOffset,
+                    sourceTimeStamp: time,
+                    primaryDelta: correctedDelta.dx,
+                    delta: Offset(correctedDelta.dx, 0.0),
+                  );
+                  _verticalTouchHandler.handleDragUpdate(verticalDetails);
+                  _horizontalTouchHandler.handleDragUpdate(horizontalDetails);
+                }
+              },
+              onScaleEnd: (ScaleEndDetails details) {
+                _trackPadState = TrackPadState.none;
+                _globalTrackpadDistance = Size.zero;
+                _lastScale = _scale;
+                Offset velocity = _tracker.getVelocity().pixelsPerSecond;
+                DragEndDetails endDetails = DragEndDetails(
+                  velocity: Velocity(pixelsPerSecond: Offset(0.0, velocity.dy)),
+                  primaryVelocity: velocity.dy,
                 );
-                final DragUpdateDetails horizontalDetails = DragUpdateDetails(
-                  globalPosition: correctedOffset,
-                  sourceTimeStamp: time,
-                  primaryDelta: correctedDelta.dx,
-                  delta: Offset(correctedDelta.dx, 0.0),
+                DragEndDetails hEndDetails = DragEndDetails(
+                  velocity: Velocity(pixelsPerSecond: Offset(velocity.dx, 0.0)),
+                  primaryVelocity: velocity.dx,
                 );
-                _verticalTouchHandler.handleDragUpdate(verticalDetails);
-                _horizontalTouchHandler.handleDragUpdate(horizontalDetails);
-              }
-            },
-            onScaleEnd: (ScaleEndDetails details) {
-              _trackPadState = TrackPadState.none;
-              _globalTrackpadDistance = Size.zero;
-              _lastScale = _scale;
-              Offset velocity = _tracker.getVelocity().pixelsPerSecond;
-              DragEndDetails endDetails = DragEndDetails(
-                velocity: Velocity(pixelsPerSecond: Offset(0.0, velocity.dy)),
-                primaryVelocity: velocity.dy,
-              );
-              DragEndDetails hEndDetails = DragEndDetails(
-                velocity: Velocity(pixelsPerSecond: Offset(velocity.dx, 0.0)),
-                primaryVelocity: velocity.dx,
-              );
-              _verticalTouchHandler.handleDragEnd(endDetails);
-              _horizontalTouchHandler.handleDragEnd(hEndDetails);
-            },
-            onDoubleTapDown: widget.onDoubleTapDown == null
-                ? null
-                : (TapDownDetails details) {
-                    _tapDownDetails = details;
-                  },
-            onDoubleTap: widget.onDoubleTapDown == null
-                ? null
-                : () {
-                    ZoomViewDetails zoomViewDetails = ZoomViewDetails(
-                      height: height,
-                      width: width,
-                      scale: _scale,
-                      updateScale: _updateScale,
-                      tapDownDetails: _tapDownDetails,
-                      verticalController: _verticalController,
-                      horizontalController: _horizontalController,
-                      animationController: _animationController,
-                      verticalAnimationController: _verticalAnimationController,
-                      horizontalAnimationController: _horizontalAnimationController,
-                    );
-                    setState(() {
-                      widget.onDoubleTapDown!(zoomViewDetails);
-                    });
-                  },
-            child: Column(
-              children: [
-                Expanded(
-                  //When scale decreases, the SizedBox will shrink and the FittedBox
-                  //will scale the child to fit the maximum constraints of the ZoomView
-                  child: FittedBox(
-                    fit: BoxFit.fill,
-                    child: SizedBox(
-                      height: height * _scale,
-                      width: width * _scale,
-                      child: Center(
-                        child: ScrollConfiguration(
-                          behavior: const ScrollBehavior().copyWith(
-                            overscroll: false,
-                            //Disable all inputs on the list as we will handle them
-                            //ourselves using the gesture detector and scroll controllers
-                            dragDevices: <PointerDeviceKind>{},
-                            scrollbars: false,
-                          ),
-                          child: SingleChildScrollView(
-                            physics: const ClampingScrollPhysics(),
-                            controller: widget.scrollAxis == Axis.vertical
-                                ? _horizontalController
-                                : _verticalController,
-                            scrollDirection: widget.scrollAxis == Axis.vertical
-                                ? Axis.horizontal
-                                : Axis.vertical,
-                            child: SizedBox(
-                              width: widget.scrollAxis == Axis.vertical ? width : null,
-                              height: widget.scrollAxis == Axis.vertical ? null : height,
-                              child: widget.child,
+                _verticalTouchHandler.handleDragEnd(endDetails);
+                _horizontalTouchHandler.handleDragEnd(hEndDetails);
+              },
+              child: Column(
+                children: [
+                  Expanded(
+                    //When scale decreases, the SizedBox will shrink and the FittedBox
+                    //will scale the child to fit the maximum constraints of the ZoomView
+                    child: FittedBox(
+                      fit: BoxFit.fill,
+                      child: SizedBox(
+                        height: height * _scale,
+                        width: width * _scale,
+                        child: Center(
+                          child: ScrollConfiguration(
+                            behavior: const ScrollBehavior().copyWith(
+                              overscroll: false,
+                              //Disable all inputs on the list as we will handle them
+                              //ourselves using the gesture detector and scroll controllers
+                              dragDevices: <PointerDeviceKind>{},
+                              scrollbars: false,
+                            ),
+                            child: SingleChildScrollView(
+                              physics: const ClampingScrollPhysics(),
+                              controller: widget.scrollAxis == Axis.vertical
+                                  ? _horizontalController
+                                  : _verticalController,
+                              scrollDirection: widget.scrollAxis == Axis.vertical
+                                  ? Axis.horizontal
+                                  : Axis.vertical,
+                              child: SizedBox(
+                                width: widget.scrollAxis == Axis.vertical ? width : null,
+                                height: widget.scrollAxis == Axis.vertical ? null : height,
+                                child: widget.child,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -338,12 +397,12 @@ final class ZoomViewDetails {
   final double height;
   final double width;
   final Function updateScale;
+  final Function updateLastScale;
   final ScrollController verticalController;
   final ScrollController horizontalController;
-  final AnimationController animationController;
-  final AnimationController verticalAnimationController;
-  final AnimationController horizontalAnimationController;
+  final AnimationController masterAnimationController;
   final double scale;
+
   ZoomViewDetails({
     required this.verticalController,
     required this.horizontalController,
@@ -351,10 +410,9 @@ final class ZoomViewDetails {
     required this.height,
     required this.width,
     required this.updateScale,
-    required this.animationController,
-    required this.verticalAnimationController,
-    required this.horizontalAnimationController,
+    required this.updateLastScale,
     required this.scale,
+    required this.masterAnimationController,
   });
 
   ///Calculates the new vertical offset for the scroll controller
@@ -377,18 +435,18 @@ final class ZoomViewGestureHandler {
   final Duration duration;
   ZoomViewGestureHandler({
     required this.zoomLevels,
-    this.duration = const Duration(milliseconds: 100),
+    this.duration = const Duration(milliseconds: 150),
   });
 
   void onDoubleTap(ZoomViewDetails zoomViewDetails) {
     late double newScale;
-    if (zoomViewDetails.scale > 1.0 && 1 == 1) {
-      newScale = 1;
+    if (zoomViewDetails.scale > 1.0) {
+      newScale = 1.0;
       _index = 0;
     } else {
       newScale = 1 / zoomLevels[_index];
       _index++;
-      if (_index == zoomLevels.length) {
+      if (_index >= zoomLevels.length) {
         _index = 0;
       }
     }
@@ -396,30 +454,42 @@ final class ZoomViewGestureHandler {
     final verticalOffset = zoomViewDetails.getVerticalOffset(newScale);
     final horizontalOffset = zoomViewDetails.getHorizontalOffset(newScale);
 
-    if (duration != const Duration(milliseconds: 0)) {
-      zoomViewDetails.animationController
-        ..value = zoomViewDetails.scale
-        ..animateTo(
-          newScale,
-          duration: duration,
-          curve: Curves.linear,
-        );
+    if (duration > Duration.zero) {
+      zoomViewDetails.masterAnimationController.stop();
+      zoomViewDetails.masterAnimationController.duration = duration;
 
-      zoomViewDetails.verticalAnimationController
-        ..value = zoomViewDetails.verticalController.position.pixels
-        ..animateTo(
-          verticalOffset,
-          duration: duration,
-          curve: Curves.linear,
-        );
+      final scaleAnimation = Tween<double>(begin: zoomViewDetails.scale, end: newScale)
+          .animate(zoomViewDetails.masterAnimationController);
 
-      zoomViewDetails.horizontalAnimationController
-        ..value = zoomViewDetails.horizontalController.position.pixels
-        ..animateTo(
-          horizontalOffset,
-          duration: duration,
-          curve: Curves.linear,
-        );
+      final vOffsetAnimation = Tween<double>(
+        begin: zoomViewDetails.verticalController.position.pixels,
+        end: verticalOffset,
+      ).animate(zoomViewDetails.masterAnimationController);
+
+      final hOffsetAnimation = Tween<double>(
+        begin: zoomViewDetails.horizontalController.position.pixels,
+        end: horizontalOffset,
+      ).animate(zoomViewDetails.masterAnimationController);
+
+      void listener() {
+        zoomViewDetails.updateScale(scaleAnimation.value);
+        zoomViewDetails.verticalController.jumpTo(vOffsetAnimation.value);
+        zoomViewDetails.horizontalController.jumpTo(hOffsetAnimation.value);
+      }
+
+      zoomViewDetails.masterAnimationController.addListener(listener);
+
+      void statusListener(status) {
+        if (status == AnimationStatus.completed) {
+          zoomViewDetails.updateLastScale(newScale);
+          zoomViewDetails.masterAnimationController.removeStatusListener(statusListener);
+          zoomViewDetails.masterAnimationController.removeListener(listener);
+        }
+      }
+
+      zoomViewDetails.masterAnimationController.addStatusListener(statusListener);
+
+      zoomViewDetails.masterAnimationController.forward(from: 0.0);
     } else {
       zoomViewDetails.updateScale(newScale);
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
@@ -428,14 +498,11 @@ final class ZoomViewGestureHandler {
   }
 }
 
-///Touch handlers coppied from Flutter ScrollableState
+///Touch handlers copied from Flutter ScrollableState
 final class _TouchHandler {
   final ScrollController controller;
   _TouchHandler({required this.controller});
-  final GlobalKey<RawGestureDetectorState> _gestureDetectorKey =
-      GlobalKey<RawGestureDetectorState>();
   Drag? _drag;
-
   ScrollHoldController? _hold;
 
   void handleDragDown(DragDownDetails details) {
@@ -452,24 +519,17 @@ final class _TouchHandler {
   }
 
   void handleDragUpdate(DragUpdateDetails details) {
-    // _drag might be null if the drag activity ended and called _disposeDrag.
     assert(_hold == null || _drag == null);
     _drag?.update(details);
   }
 
   void handleDragEnd(DragEndDetails details) {
-    // _drag might be null if the drag activity ended and called _disposeDrag.
     assert(_hold == null || _drag == null);
     _drag?.end(details);
     assert(_drag == null);
   }
 
   void handleDragCancel() {
-    if (_gestureDetectorKey.currentContext == null) {
-      return;
-    }
-    // _hold might be null if the drag started.
-    // _drag might be null if the drag activity ended and called _disposeDrag.
     assert(_hold == null || _drag == null);
     _hold?.cancel();
     _drag?.cancel();
