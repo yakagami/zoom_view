@@ -24,6 +24,7 @@ class ZoomViewController {
 
   /// Sets the scale of the attached [ZoomView].
   void setScale(double newScale, {Offset? focalPoint}) {
+    if (!isAttached) return;
     final state = _state!;
     if (!state.mounted) return;
     final widget = state.widget;
@@ -62,6 +63,7 @@ class ZoomViewController {
     Duration duration = const Duration(milliseconds: 150),
     Offset? focalPoint,
   }) {
+    if (!isAttached) return;
     final state = _state!;
     if (!state.mounted) return;
     final widget = state.widget;
