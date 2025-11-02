@@ -483,7 +483,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
               _globalTrackpadDistance = Size.zero;
               _lastScale = _scale;
               _previousDragPosition = null;
-              _dragMode = DragMode.pan;
+
               Offset velocity = _tracker.getVelocity().pixelsPerSecond;
               DragEndDetails endDetails = DragEndDetails(
                 velocity: Velocity(pixelsPerSecond: Offset(0.0, velocity.dy)),
@@ -501,6 +501,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                   scale: 1 / _scale,
                 ),
               );
+              _dragMode = DragMode.pan;
             },
             onDoubleTapDown: widget.onDoubleTap == null && widget.doubleTapDrag == false
                 ? null
