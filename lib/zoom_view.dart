@@ -1,6 +1,150 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
+/// A controller for a [ZoomView] that allows programmatic control over the zoom level.
+class ZoomViewController {
+  _ZoomViewState? _state;
+
+  void _attach(_ZoomViewState state) {
+    _state = state;
+  }
+
+  void _detach() {
+    _state = null;
+  }
+
+  /// Whether the controller is currently attached to a [ZoomView].
+  bool get isAttached => _state != null;
+
+  /// The current scale (zoom level) of the attached [ZoomView].
+  double get scale {
+    if (!isAttached) return 1.0;
+    return 1 / _state!._scale;
+  }
+
+  /// Sets the scale of the attached [ZoomView].
+  void setScale(double newScale, {Offset? focalPoint}) {
+    final state = _state!;
+    if (!state.mounted) return;
+    final widget = state.widget;
+
+    final size = state.context.size;
+    if (size == null) return;
+    final double height = size.height;
+    final double width = size.width;
+
+    final focus = focalPoint ?? Offset(width / 2, height / 2);
+
+    final clampedUserScale = _clampDouble(newScale, widget.minScale, widget.maxScale);
+    final internalNewScale = 1 / clampedUserScale;
+    final double currentInternalScale = state._scale;
+
+    final effectiveHorizontalPixels = currentInternalScale > 1.0
+        ? -(width * currentInternalScale - width) / 2.0
+        : state._horizontalController.position.pixels;
+
+    final effectiveVerticalPixels = state._verticalController.position.pixels;
+
+    final newHorizontalPixels =
+        effectiveHorizontalPixels + (currentInternalScale - internalNewScale) * focus.dx;
+    final newVerticalPixels =
+        effectiveVerticalPixels + (currentInternalScale - internalNewScale) * focus.dy;
+
+    state._updateScale(internalNewScale);
+    state._verticalController.jumpTo(newVerticalPixels);
+    state._horizontalController.jumpTo(newHorizontalPixels);
+    state._updateLastScale(internalNewScale);
+  }
+
+  /// Sets the scale of the attached [ZoomView] to a new value with an animation.
+  void setScaleWithAnimation(
+    double newScale, {
+    Duration duration = const Duration(milliseconds: 150),
+    Offset? focalPoint,
+  }) {
+    final state = _state!;
+    if (!state.mounted) return;
+    final widget = state.widget;
+
+    final size = state.context.size;
+    if (size == null) return;
+    final double height = size.height;
+    final double width = size.width;
+
+    final focus = focalPoint ?? Offset(width / 2, height / 2);
+
+    final clampedUserScale = _clampDouble(newScale, widget.minScale, widget.maxScale);
+    final internalNewScale = 1 / clampedUserScale;
+    final double initialInternalScale = state._scale;
+
+    if (duration <= Duration.zero) {
+      setScale(newScale, focalPoint: focalPoint);
+      return;
+    }
+
+    state._masterAnimationController.stop();
+    state._masterAnimationController.duration = duration;
+
+    final scaleAnimation = Tween<double>(begin: initialInternalScale, end: internalNewScale)
+        .animate(
+            CurvedAnimation(parent: state._masterAnimationController, curve: Curves.easeInOut));
+
+    double currentEffectiveHorizontalPixels = initialInternalScale > 1.0
+        ? -(width * initialInternalScale - width) / 2.0
+        : state._horizontalController.position.pixels;
+
+    double currentEffectiveVerticalPixels = state._verticalController.position.pixels;
+    bool firstFrame = true;
+    bool secondFrame = false;
+    void listener() {
+      final double newAnimatedInternalScale = scaleAnimation.value;
+      final double previousAnimatedInternalScale = state._scale;
+
+      currentEffectiveHorizontalPixels +=
+          (previousAnimatedInternalScale - newAnimatedInternalScale) * focus.dx;
+      currentEffectiveVerticalPixels +=
+          (previousAnimatedInternalScale - newAnimatedInternalScale) * focus.dy;
+      state._updateScale(newAnimatedInternalScale);
+
+      if (!firstFrame && !secondFrame) {
+        state._verticalController.jumpTo(currentEffectiveVerticalPixels);
+        state._horizontalController.jumpTo(currentEffectiveHorizontalPixels);
+      }
+      if (secondFrame) {
+        secondFrame = false;
+      }
+      if (firstFrame) {
+        //the first and second frame jumps have the same value,
+        // so we only play the first frame but on the second tick,
+        // otherwise the view crashes into the viewport and flickers
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (state.mounted) {
+            state._verticalController.jumpTo(currentEffectiveVerticalPixels);
+            state._horizontalController.jumpTo(currentEffectiveHorizontalPixels);
+          }
+        });
+        secondFrame = true;
+      }
+      firstFrame = false;
+    }
+
+    state._masterAnimationController.addListener(listener);
+
+    void statusListener(status) {
+      if (status == AnimationStatus.completed) {
+        //ensure final value is correct
+        setScale(1 / internalNewScale, focalPoint: focus);
+        state._updateLastScale(internalNewScale);
+        state._masterAnimationController.removeStatusListener(statusListener);
+        state._masterAnimationController.removeListener(listener);
+      }
+    }
+
+    state._masterAnimationController.addStatusListener(statusListener);
+    state._masterAnimationController.forward(from: 0.0);
+  }
+}
+
 ///Wrapper for [ZoomView] that handles the controller automatically
 class ZoomListView extends StatefulWidget {
   final ListView child;
@@ -44,6 +188,20 @@ class _ZoomListViewState extends State<ZoomListView> {
 
 enum DragMode { pan, doubleTapDrag }
 
+///Details for the [ZoomView.onScaleEnd] callback.
+final class ZoomViewScaleEndDetails {
+  ///The number of pointers that were on the screen when the scale gesture ended.
+  final int pointerCount;
+
+  ///The final scale of the [ZoomView] when the gesture ended.
+  final double scale;
+
+  ZoomViewScaleEndDetails({
+    required this.pointerCount,
+    required this.scale,
+  });
+}
+
 ///Allows a ListView or other Scrollables that implement ScrollPosition and
 ///jumpTo(offset) in their controller to be zoomed and scrolled.
 class ZoomView extends StatefulWidget {
@@ -51,12 +209,15 @@ class ZoomView extends StatefulWidget {
     super.key,
     required this.child,
     required this.controller,
+    this.zoomViewController,
     this.maxScale = 4.0,
     this.minScale = 1.0,
     this.onDoubleTap,
     this.scrollAxis = Axis.vertical,
     this.doubleTapDrag = false,
     this.forceHoldOnPointerDown = false,
+    this.onScaleChanged,
+    this.onScaleEnd,
   });
 
   ///Callback invoked after a double tap down.
@@ -64,6 +225,9 @@ class ZoomView extends StatefulWidget {
   final void Function(ZoomViewDetails details)? onDoubleTap;
   final Widget child;
   final ScrollController controller;
+
+  /// A controller to programmatically control the zoom level.
+  final ZoomViewController? zoomViewController;
 
   ///scrollAxis must be set to Axis.horizontal if the Scrollable is horizontal
   final Axis scrollAxis;
@@ -82,6 +246,12 @@ class ZoomView extends StatefulWidget {
   ///not automatically win the arena and the scrollables are still scrolling
   ///from a previous fling gesture.
   final bool forceHoldOnPointerDown;
+
+  ///Callback invoked any time the scale of the [ZoomView] changes.
+  final void Function(double scale)? onScaleChanged;
+
+  ///Callback invoked when a scale gesture ends.
+  final void Function(ZoomViewScaleEndDetails details)? onScaleEnd;
 
   @override
   State<ZoomView> createState() => _ZoomViewState();
@@ -105,6 +275,17 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 
     _maxScale = 1 / widget.maxScale;
     _minScale = 1 / widget.minScale;
+
+    widget.zoomViewController?._attach(this);
+  }
+
+  @override
+  void didUpdateWidget(ZoomView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.zoomViewController != oldWidget.zoomViewController) {
+      oldWidget.zoomViewController?._detach();
+      widget.zoomViewController?._attach(this);
+    }
   }
 
   @override
@@ -115,6 +296,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
     } else {
       _verticalController.dispose();
     }
+    widget.zoomViewController?._detach();
     super.dispose();
   }
 
@@ -158,6 +340,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
     setState(() {
       _scale = scale;
     });
+    widget.onScaleChanged?.call(1 / scale);
   }
 
   void _updateLastScale(double scale) {
@@ -236,9 +419,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                   final horizontalOffset = _horizontalController.position.pixels +
                       (_scale - newScale) * details.localFocalPoint.dx;
 
-                  setState(() {
-                    _scale = newScale;
-                  });
+                  _updateScale(newScale);
 
                   _verticalController.jumpTo(verticalOffset);
                   _horizontalController.jumpTo(horizontalOffset);
@@ -272,9 +453,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                     final horizontalOffset = _horizontalController.position.pixels +
                         (_scale - newScale) * _localFocalPoint.dx;
                     //This is the main logic to actually perform the scaling
-                    setState(() {
-                      _scale = newScale;
-                    });
+                    _updateScale(newScale);
                     _verticalController.jumpTo(verticalOffset);
                     _horizontalController.jumpTo(horizontalOffset);
                   } else {
@@ -316,6 +495,12 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
               );
               _verticalTouchHandler.handleDragEnd(endDetails);
               _horizontalTouchHandler.handleDragEnd(hEndDetails);
+              widget.onScaleEnd?.call(
+                ZoomViewScaleEndDetails(
+                  pointerCount: details.pointerCount,
+                  scale: 1 / _scale,
+                ),
+              );
             },
             onDoubleTapDown: widget.onDoubleTap == null && widget.doubleTapDrag == false
                 ? null
@@ -497,6 +682,7 @@ final class ZoomViewGestureHandler {
       zoomViewDetails.masterAnimationController.forward(from: 0.0);
     } else {
       zoomViewDetails.updateScale(newScale);
+      zoomViewDetails.updateLastScale(newScale);
       zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
       zoomViewDetails.verticalController.jumpTo(verticalOffset);
     }
