@@ -220,9 +220,10 @@ class ZoomView extends StatefulWidget {
     this.onScaleEnd,
   });
 
-  ///Callback invoked after a double tap down.
-  ///This is set by the user but will generally be [ZoomViewGestureHandler.onDoubleTap] or null.
-  final void Function(ZoomViewDetails details)? onDoubleTap;
+  /// Callback invoked after a double tap.
+  /// The [TapDownDetails] from the gesture are provided.
+  /// This is commonly used with [ZoomViewGestureHandler.onDoubleTap].
+  final void Function(TapDownDetails details)? onDoubleTap;
   final Widget child;
   final ScrollController controller;
 
@@ -516,20 +517,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                 ? null
                 : () {
                     _dragMode = DragMode.pan;
-                    ZoomViewDetails zoomViewDetails = ZoomViewDetails(
-                      height: height,
-                      width: width,
-                      scale: _scale,
-                      updateScale: _updateScale,
-                      updateLastScale: _updateLastScale,
-                      tapDownDetails: _tapDownDetails,
-                      verticalController: _verticalController,
-                      horizontalController: _horizontalController,
-                      masterAnimationController: _masterAnimationController,
-                    );
-                    setState(() {
-                      widget.onDoubleTap!(zoomViewDetails);
-                    });
+                    widget.onDoubleTap!(_tapDownDetails);
                   },
             child: Column(
               children: [
@@ -582,110 +570,53 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
 ///the PointerDeviceKind is not a trackpad
 enum TrackPadState { none, waiting, pan, scale }
 
-///Details needed to perform a double tap zoom
-final class ZoomViewDetails {
-  final TapDownDetails tapDownDetails;
-  final double height;
-  final double width;
-  final Function updateScale;
-  final Function updateLastScale;
-  final ScrollController verticalController;
-  final ScrollController horizontalController;
-  final AnimationController masterAnimationController;
-  final double scale;
-
-  ZoomViewDetails({
-    required this.verticalController,
-    required this.horizontalController,
-    required this.tapDownDetails,
-    required this.height,
-    required this.width,
-    required this.updateScale,
-    required this.updateLastScale,
-    required this.scale,
-    required this.masterAnimationController,
-  });
-
-  ///Calculates the new vertical offset for the scroll controller
-  double getVerticalOffset(double newScale) {
-    return verticalController.position.pixels +
-        (scale - newScale) * tapDownDetails.localPosition.dy;
-  }
-
-  ///Calculates the new horizontal offset for the scroll controller
-  double getHorizontalOffset(double newScale) {
-    return horizontalController.position.pixels +
-        (scale - newScale) * tapDownDetails.localPosition.dx;
-  }
-}
-
-///Handles the logic for a double tap zoom via the [ZoomView.onDoubleTapDown] callback
+///Handles the logic for a double tap zoom.
+///This should be used with the [ZoomView.onDoubleTap] callback.
 final class ZoomViewGestureHandler {
   int _index = 0;
   final List<double> zoomLevels;
   final Duration duration;
+  final ZoomViewController controller;
+
+  /// Creates a handler for double tap gestures.
+  ///
+  /// [controller] is the [ZoomViewController] that this handler will control.
+  /// [zoomLevels] is a list of zoom scales to cycle through on each double tap.
+  /// [duration] is the animation duration for the zoom.
   ZoomViewGestureHandler({
+    required this.controller,
     required this.zoomLevels,
     this.duration = const Duration(milliseconds: 150),
   });
 
-  void onDoubleTap(ZoomViewDetails zoomViewDetails) {
+  /// The method to be passed to [ZoomView.onDoubleTap].
+  void onDoubleTap(TapDownDetails details) {
+    if (!controller.isAttached) return;
+
+    final currentScale = controller.scale;
     late double newScale;
-    if (zoomViewDetails.scale > 1.0) {
+
+    if (currentScale < 1.0) {
       newScale = 1.0;
       _index = 0;
     } else {
-      newScale = 1 / zoomLevels[_index];
+      newScale = zoomLevels[_index];
       _index++;
       if (_index >= zoomLevels.length) {
         _index = 0;
       }
     }
 
-    final verticalOffset = zoomViewDetails.getVerticalOffset(newScale);
-    final horizontalOffset = zoomViewDetails.getHorizontalOffset(newScale);
+    final focalPoint = details.localPosition;
 
     if (duration > Duration.zero) {
-      zoomViewDetails.masterAnimationController.stop();
-      zoomViewDetails.masterAnimationController.duration = duration;
-
-      final scaleAnimation = Tween<double>(begin: zoomViewDetails.scale, end: newScale)
-          .animate(zoomViewDetails.masterAnimationController);
-
-      final vOffsetAnimation = Tween<double>(
-        begin: zoomViewDetails.verticalController.position.pixels,
-        end: verticalOffset,
-      ).animate(zoomViewDetails.masterAnimationController);
-
-      final hOffsetAnimation = Tween<double>(
-        begin: zoomViewDetails.horizontalController.position.pixels,
-        end: horizontalOffset,
-      ).animate(zoomViewDetails.masterAnimationController);
-
-      void listener() {
-        zoomViewDetails.updateScale(scaleAnimation.value);
-        zoomViewDetails.verticalController.jumpTo(vOffsetAnimation.value);
-        zoomViewDetails.horizontalController.jumpTo(hOffsetAnimation.value);
-      }
-
-      zoomViewDetails.masterAnimationController.addListener(listener);
-
-      void statusListener(status) {
-        if (status == AnimationStatus.completed) {
-          zoomViewDetails.updateLastScale(newScale);
-          zoomViewDetails.masterAnimationController.removeStatusListener(statusListener);
-          zoomViewDetails.masterAnimationController.removeListener(listener);
-        }
-      }
-
-      zoomViewDetails.masterAnimationController.addStatusListener(statusListener);
-
-      zoomViewDetails.masterAnimationController.forward(from: 0.0);
+      controller.setScaleWithAnimation(
+        newScale,
+        duration: duration,
+        focalPoint: focalPoint,
+      );
     } else {
-      zoomViewDetails.updateScale(newScale);
-      zoomViewDetails.updateLastScale(newScale);
-      zoomViewDetails.horizontalController.jumpTo(horizontalOffset);
-      zoomViewDetails.verticalController.jumpTo(verticalOffset);
+      controller.setScale(newScale, focalPoint: focalPoint);
     }
   }
 }

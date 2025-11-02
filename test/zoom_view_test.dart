@@ -14,7 +14,7 @@ Future<void> _doubleTap(WidgetTester tester, Finder finder) async {
 Widget createZoomViewApp({
   required ScrollController scrollController,
   ZoomViewController? zoomViewController,
-  void Function(ZoomViewDetails details)? onDoubleTap,
+  void Function(TapDownDetails details)? onDoubleTap,
   void Function(double scale)? onScaleChanged,
   void Function(ZoomViewScaleEndDetails details)? onScaleEnd,
   double minScale = 0.5,
@@ -391,7 +391,8 @@ void main() {
   group('ZoomViewGestureHandler', () {
     testWidgets('onDoubleTap cycles through zoomLevels', (tester) async {
       final zoomViewController = ZoomViewController();
-      final gestureHandler = ZoomViewGestureHandler(zoomLevels: [2.0, 3.0]);
+      final gestureHandler =
+          ZoomViewGestureHandler(zoomLevels: [2.0, 3.0], controller: zoomViewController);
       final scrollController = ScrollController();
 
       await tester.pumpWidget(createZoomViewApp(
