@@ -4,6 +4,19 @@ Widget that allows both zooming and scrolling a `ListView`, or other `Scrollable
 
 Double tap to zoom, min and max scale, scroll a list of images, maintain standard ScrollPhysics and fling velocity.
 
+Note: extra features only on github (not pub) for now and require more testing:
+
+Double tap and drag to zoom, listen to onScaleChanged and onScaleEnd callbacks, set zoom programatiaclly with ZoomViewController.
+
+To test these three extra features add this to your pubspec:
+
+```yaml
+
+zoom_view:
+  git: https://github.com/yakagami/zoom_view
+
+```
+
 ## Demo
 
 <img src = "https://raw.githubusercontent.com/yakagami/zoom_view/main/zoomView.gif" width  = 300>
@@ -186,3 +199,4 @@ ZoomView(
 ),
 
 ```
+
