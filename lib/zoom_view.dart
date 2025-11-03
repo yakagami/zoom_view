@@ -22,7 +22,8 @@ class ZoomViewController {
     return 1 / _state!._scale;
   }
 
-  /// Returns the current [DragMode] of the [ZoomView]
+  /// Returns the current [DragMode] of the [ZoomView]. When [ZoomView.onScaleEnd]
+  /// is called, this will be the DragMode of the last gesture.
   DragMode get dragMode {
     if (!isAttached) {
       throw ("Controler is not attached to a ZoomView");
