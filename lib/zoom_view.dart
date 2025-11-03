@@ -16,7 +16,7 @@ class ZoomViewController {
   /// Whether the controller is currently attached to a [ZoomView].
   bool get isAttached => _state != null;
 
-  /// The current scale (zoom level) of the attached [ZoomView].
+  /// The current scale of the attached [ZoomView].
   double get scale {
     if (!isAttached) return 1.0;
     return 1 / _state!._scale;
@@ -581,12 +581,12 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
   }
 }
 
-///keeps record of the state of a trackpad. Should be set to none if
-///the PointerDeviceKind is not a trackpad
+/// keeps record of the state of a trackpad. Should be set to none if
+/// the PointerDeviceKind is not a trackpad
 enum TrackPadState { none, waiting, pan, scale }
 
-///Handles the logic for a double tap zoom.
-///This should be used with the [ZoomView.onDoubleTap] callback.
+/// Handles the logic for a double tap zoom.
+/// This should be used with the [ZoomView.onDoubleTap] callback.
 final class ZoomViewGestureHandler {
   int _index = 0;
   final List<double> zoomLevels;
@@ -636,7 +636,7 @@ final class ZoomViewGestureHandler {
   }
 }
 
-///Touch handlers copied from Flutter ScrollableState
+/// Touch handlers copied from Flutter ScrollableState
 final class _TouchHandler {
   final ScrollController controller;
   _TouchHandler({required this.controller});
