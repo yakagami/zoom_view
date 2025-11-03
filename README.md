@@ -102,16 +102,60 @@ class ZoomViewExample extends StatefulWidget {
 
 class _ZoomViewExampleState extends State<ZoomViewExample> {
   ScrollController controller = ScrollController();
-  ZoomViewGestureHandler handler = ZoomViewGestureHandler(zoomLevels: [2,1]);
+  final ZoomViewController _zoomViewController = ZoomViewController();
+  late final ZoomViewGestureHandler handler;
+
+  @override
+  void initState() {
+    super.initState();
+    handler = ZoomViewGestureHandler(
+        zoomLevels: [2, 1], controller: _zoomViewController);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: ZoomView(
+        zoomViewController: _zoomViewController,
+        controller: controller,
+        onDoubleTap: (TapDownDetails details) {
+          handler.onDoubleTap(details);
+        },
+        child: ListView.builder(
+            controller: controller,
+            itemCount: 10000,
+            itemBuilder: (context, index) {
+              return Center(child: Text("text $index"));
+            }),
+      ),
+    );
+  }
+}
+
+
+```
+
+### Double-tap-drag:
+
+
+```dart
+
+class ZoomViewExample extends StatefulWidget {
+  const ZoomViewExample({super.key});
+
+  @override
+  State<ZoomViewExample> createState() => _ZoomViewExampleState();
+}
+
+class _ZoomViewExampleState extends State<ZoomViewExample> {
+  ScrollController controller = ScrollController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: ZoomView(
         controller: controller,
-        onDoubleTapDown: (ZoomViewDetails zoomViewDetails){
-           handler.onDoubleTap(zoomViewDetails);
-        },
+        doubleTapDrag: true,
         child: ListView.builder(
             controller: controller,
             itemCount: 10000,
@@ -120,6 +164,136 @@ class _ZoomViewExampleState extends State<ZoomViewExample> {
                   child: Text("text $index")
               );
             }
+        ),
+      ),
+    );
+  }
+}
+
+```
+
+### ZoomViewController, ScaleChanged and ScaleEnd callbacks:
+
+```dart
+
+import 'package:flutter/material.dart';
+import 'package:zoom_view/zoom_view.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ZoomView Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
+      home: const MyZoomablePage(),
+    );
+  }
+}
+
+class MyZoomablePage extends StatefulWidget {
+  const MyZoomablePage({super.key});
+
+  @override
+  State<MyZoomablePage> createState() => _MyZoomablePageState();
+}
+
+class _MyZoomablePageState extends State<MyZoomablePage> {
+  late final ZoomViewGestureHandler _zoomViewGestureHandler;
+  late final ZoomViewController _zoomViewController;
+  late final ScrollController _scrollController;
+
+  bool _autoResetOnScaleEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoomViewController = ZoomViewController();
+    _scrollController = ScrollController();
+    _zoomViewGestureHandler = ZoomViewGestureHandler(
+        zoomLevels: [2.0, 1.0], controller: _zoomViewController);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.replay,
+              color: _autoResetOnScaleEnd
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey,
+            ),
+            onPressed: () {
+              setState(() {
+                _autoResetOnScaleEnd = !_autoResetOnScaleEnd;
+              });
+            },
+          ),
+          IconButton(
+              icon: const Icon(Icons.zoom_out),
+              tooltip: 'Zoom Out',
+              onPressed: () {
+                final cs = _zoomViewController.scale;
+                _zoomViewController.setScaleWithAnimation(cs - 0.6);
+              }),
+          IconButton(
+              icon: const Icon(Icons.zoom_in),
+              tooltip: 'Zoom In',
+              onPressed: () {
+                final cs = _zoomViewController.scale;
+                _zoomViewController.setScaleWithAnimation(cs + 1.75);
+              }),
+        ],
+      ),
+      body: ZoomView(
+        zoomViewController: _zoomViewController,
+        minScale: 0.5,
+        controller: _scrollController,
+        onDoubleTap: (details) {
+          print(details.localPosition);
+          _zoomViewGestureHandler.onDoubleTap(details);
+        },
+        onScaleChanged: (scale) {
+          print(scale);
+        },
+        onScaleEnd: (details) {
+          print("scale end");
+          print(details.pointerCount);
+          if (_autoResetOnScaleEnd &&
+              _zoomViewController.dragMode == DragMode.pinchScale) {
+            _zoomViewController.setScale(1.0);
+          }
+        },
+        doubleTapDrag: true,
+        child: ListView.builder(
+          controller: _scrollController,
+          itemCount: 50,
+          itemBuilder: (context, index) {
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(child: Text('${index + 1}')),
+                title: Text('List Item ${index + 1}'),
+                subtitle: const Text('This is a zoomable list item'),
+              ),
+            );
+          },
         ),
       ),
     );
