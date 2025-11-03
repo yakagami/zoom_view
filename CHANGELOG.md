@@ -17,3 +17,7 @@ Added support for zoomout out passed 1.0x zoom. Added ability to set min scale a
 ## 1.0.0
 
 Added double tap and drag to zoom, onScaleChanged and onScaleEnd callbacks, added ZoomViewController to set zoom programatiaclly. Added tests.
+
+## 1.0.1
+
+Remove stray outdated comment in readme
