@@ -13,3 +13,7 @@ Added support for horizontal scroll axis, double-tap to zoom and trackpad scroll
 ## 0.0.18
 
 Added support for zoomout out passed 1.0x zoom. Added ability to set min scale and max scale
+
+## 1.0.0
+
+Added double tap and drag to zoom, onScaleChanged and onScaleEnd callbacks, added ZoomViewController to set zoom programatiaclly. Added tests.

@@ -1,6 +1,6 @@
 name: zoom_view
 description: "zoom and scroll a ListView or other Scrollables like scrollable_positioned_list"
-version: 0.0.24
+version: 1.0.0
 repository: "https://github.com/yakagami/zoom_view"
 
 environment:
