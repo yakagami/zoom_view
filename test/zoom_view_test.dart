@@ -283,6 +283,155 @@ void main() {
       await tester.pumpAndSettle();
       scrollController.dispose();
     });
+
+    testWidgets('dragMode is correctly updated during gestures', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+        doubleTapDrag: true,
+      ));
+
+      final finder = find.byType(ZoomView);
+      final center = tester.getCenter(finder);
+
+      // Test Pan
+      final panGesture = await tester.startGesture(center);
+      await panGesture.moveBy(const Offset(0, -(kPanSlop + 1)));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.pan);
+
+      await panGesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+
+      // Test Pinch Scale
+      final gesture1 = await tester.startGesture(center - const Offset(50, 0));
+      final gesture2 = await tester.startGesture(center + const Offset(50, 0));
+      await tester.pump();
+      await gesture1.moveBy(const Offset(-20, 0));
+      await gesture2.moveBy(const Offset(20, 0));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.pinchScale);
+      await gesture1.up();
+      await gesture2.up();
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+
+      // Test Double Tap Drag
+      await tester.tap(finder);
+      await tester.pump(kDoubleTapMinTime);
+      final doubleTapDragGesture = await tester.startGesture(center);
+      await tester.pump(kDoubleTapMinTime);
+      await doubleTapDragGesture.moveBy(const Offset(0, 50));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.doubleTapDrag);
+      await doubleTapDragGesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+
+      scrollController.dispose();
+    });
+
+    testWidgets('Pan gesture transitions to pinch-to-zoom when a second finger is added',
+        (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+
+      final finder = find.byType(ZoomView);
+      final center = tester.getCenter(finder);
+
+      // Start with a single-finger pan
+      final gesture1 = await tester.startGesture(center);
+      await tester.pump();
+      await gesture1.moveBy(const Offset(0, -50));
+      await tester.pump(const Duration(milliseconds: 20)); // Settle pan
+
+      // Verify it's panning
+      expect(controller.dragMode, DragMode.pan);
+      expect(scrollController.offset, greaterThan(0));
+      expect(controller.scale, 1.0);
+      final initialOffset = scrollController.offset;
+
+      // Add a second finger
+      final gesture2 = await tester.startGesture(center + const Offset(100, 0));
+      await tester.pump();
+
+      // Move both fingers to scale. A move event is needed to trigger onScaleUpdate
+      // and update the dragMode.
+      await gesture1.moveBy(const Offset(-20, 0));
+      await gesture2.moveBy(const Offset(20, 0));
+      await tester.pump();
+
+      // Verify it's now scaling
+      expect(controller.dragMode, DragMode.pinchScale);
+      expect(controller.scale, greaterThan(1.0));
+
+      // FIX: The scroll offset is EXPECTED to change to keep the zoom anchored
+      // to the focal point. The original test's expectation was incorrect.
+      // We now simply check that the offset has increased, as expected when
+      // zooming into the center of a scrolled view.
+      expect(scrollController.offset, greaterThan(initialOffset));
+
+      await gesture1.up();
+      await gesture2.up();
+      await tester.pumpAndSettle();
+      scrollController.dispose();
+    });
+
+    testWidgets('Pinch-to-zoom transitions to pan when one finger is lifted', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+
+      final finder = find.byType(ZoomView);
+      final center = tester.getCenter(finder);
+      final initialScale = controller.scale;
+      final initialOffset = scrollController.offset;
+
+      // Start with a two-finger pinch
+      final gesture1 = await tester.startGesture(center - const Offset(50, 0));
+      final gesture2 = await tester.startGesture(center + const Offset(50, 0));
+      await tester.pump();
+
+      await gesture1.moveBy(const Offset(-50, 0));
+      await gesture2.moveBy(const Offset(50, 0));
+      await tester.pump();
+
+      // Verify it's scaling
+      expect(controller.dragMode, DragMode.pinchScale);
+      expect(controller.scale, greaterThan(initialScale));
+      final scaleAfterZoom = controller.scale;
+
+      // Lift one finger
+      await gesture1.up();
+      await tester.pump();
+
+      // onScaleEnd is called, so dragMode should be none.
+      expect(controller.dragMode, DragMode.none);
+
+      // Move the remaining finger to pan, which starts a new gesture.
+      await gesture2.moveBy(const Offset(0, -50));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      // Verify it's now panning
+      expect(controller.dragMode, DragMode.pan);
+      expect(controller.scale, moreOrLessEquals(scaleAfterZoom)); // Scale should not change
+      expect(
+          scrollController.offset, isNot(moreOrLessEquals(initialOffset))); // Offset should change
+
+      await gesture2.up();
+      await tester.pumpAndSettle();
+      scrollController.dispose();
+    });
   });
 
   group('ZoomView Callbacks', () {
@@ -414,6 +563,217 @@ void main() {
 
       await _doubleTap(tester, find.byType(ZoomView));
       expect(zoomViewController.scale, moreOrLessEquals(3.0));
+
+      scrollController.dispose();
+    });
+  });
+
+  group('Complex Gestures', () {
+    testWidgets('Trackpad pinch gesture zooms the view', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+
+      final trackpad = TestPointer(1, PointerDeviceKind.trackpad);
+      final center = tester.getCenter(find.byType(ZoomView));
+
+      // Start the gesture
+      await tester.sendEventToBinding(trackpad.panZoomStart(center));
+      await tester.pump();
+
+      // Zoom in
+      await tester.sendEventToBinding(trackpad.panZoomUpdate(center, scale: 2.0));
+      await tester.pump();
+      expect(controller.scale, greaterThan(1.5));
+      expect(controller.dragMode, DragMode.pinchScale);
+
+      // Zoom out
+      await tester.sendEventToBinding(trackpad.panZoomUpdate(center, scale: 0.5));
+      await tester.pump();
+      expect(controller.scale, lessThan(1.0));
+
+      // End the gesture
+      await tester.sendEventToBinding(trackpad.panZoomEnd());
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+      scrollController.dispose();
+    });
+
+    testWidgets('Trackpad scroll gesture pans the view', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+      expect(scrollController.offset, 0.0);
+
+      final trackpad = TestPointer(1, PointerDeviceKind.trackpad);
+      final center = tester.getCenter(find.byType(ZoomView));
+
+      // Start
+      await tester.sendEventToBinding(trackpad.panZoomStart(center));
+      await tester.pump();
+
+      // Pan down (scrolls content up)
+      await tester.sendEventToBinding(trackpad.panZoomUpdate(center, pan: const Offset(0, -50)));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.pan);
+      expect(scrollController.offset, greaterThan(0));
+
+      // End
+      await tester.sendEventToBinding(trackpad.panZoomEnd());
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+      scrollController.dispose();
+    });
+
+    testWidgets('Three-finger pinch gesture scales and transitions correctly', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+
+      final finder = find.byType(ZoomView);
+      final center = tester.getCenter(finder);
+
+      // Start with two fingers
+      final g1 = await tester.startGesture(center - const Offset(50, 0));
+      final g2 = await tester.startGesture(center + const Offset(50, 0));
+      await g1.moveBy(const Offset(-20, 0));
+      await g2.moveBy(const Offset(20, 0));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.pinchScale);
+      final scaleAfter2Fingers = controller.scale;
+      expect(scaleAfter2Fingers, greaterThan(1.0));
+
+      // Add a third finger
+      final g3 = await tester.startGesture(center + const Offset(0, 50));
+      await tester.pump();
+
+      // Move all three fingers apart
+      await g1.moveBy(const Offset(-20, 0));
+      await g2.moveBy(const Offset(20, 0));
+      await g3.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(controller.dragMode, DragMode.pinchScale);
+      final scaleAfter3Fingers = controller.scale;
+      expect(scaleAfter3Fingers, greaterThan(scaleAfter2Fingers));
+
+      // Lift one finger (g1)
+      await g1.up();
+      await tester.pump();
+
+      // Move remaining two fingers (g2, g3)
+      await g2.moveBy(const Offset(-20, 0)); // Move left
+      await g3.moveBy(const Offset(0, -20));
+      await tester.pump();
+      // A new scale gesture starts
+      expect(controller.dragMode, DragMode.pinchScale);
+      expect(controller.scale, lessThan(scaleAfter3Fingers));
+      final scaleAfterLifting1 = controller.scale;
+
+      // Lift another finger (g2)
+      await g2.up();
+      await tester.pump();
+
+      // Move final finger (g3)
+      await g3.moveBy(const Offset(0, -50));
+      await tester.pump();
+      // A new pan gesture starts
+      expect(controller.dragMode, DragMode.pan);
+      expect(controller.scale, moreOrLessEquals(scaleAfterLifting1));
+      expect(scrollController.offset, isNonZero);
+
+      // Lift final finger
+      await g3.up();
+      await tester.pumpAndSettle();
+      expect(controller.dragMode, DragMode.none);
+      scrollController.dispose();
+    });
+
+    testWidgets('Gesture is cancelled by PointerCancelEvent', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+      ));
+      final center = tester.getCenter(find.byType(ZoomView));
+      final g1 = await tester.startGesture(center - const Offset(50, 0));
+      final g2 = await tester.startGesture(center + const Offset(50, 0));
+      await g1.moveBy(const Offset(-20, 0));
+      await tester.pump();
+
+      expect(controller.dragMode, DragMode.pinchScale);
+      final scaleBeforeCancel = controller.scale;
+
+      // Cancel the gesture
+      await g1.cancel();
+      await tester.pumpAndSettle();
+
+      // Drag mode should reset, scale should be preserved
+      expect(controller.dragMode, DragMode.none);
+      expect(controller.scale, moreOrLessEquals(scaleBeforeCancel));
+
+      // The second pointer is still down, but the gesture recognizer has reset.
+      // Moving it should start a new pan gesture.
+      final offsetBeforePan = scrollController.offset;
+      await g2.moveBy(const Offset(0, -50));
+      await tester.pump();
+
+      expect(controller.dragMode, DragMode.pan);
+      expect(scrollController.offset, isNot(moreOrLessEquals(offsetBeforePan)));
+
+      await g2.up();
+      await tester.pumpAndSettle();
+      scrollController.dispose();
+    });
+
+    testWidgets('Scale is clamped during vigorous pinch gesture', (tester) async {
+      final controller = ZoomViewController();
+      final scrollController = ScrollController();
+      await tester.pumpWidget(createZoomViewApp(
+        scrollController: scrollController,
+        zoomViewController: controller,
+        minScale: 0.5,
+        maxScale: 2.0,
+      ));
+
+      final center = tester.getCenter(find.byType(ZoomView));
+
+      // Test maxScale clamping
+      final g1 = await tester.startGesture(center - const Offset(50, 0));
+      final g2 = await tester.startGesture(center + const Offset(50, 0));
+      await g1.moveBy(const Offset(-500, 0)); // Very large zoom-in
+      await g2.moveBy(const Offset(500, 0));
+      await tester.pump();
+
+      expect(controller.scale, moreOrLessEquals(2.0));
+
+      await g1.up();
+      await g2.up();
+      await tester.pumpAndSettle();
+      expect(controller.scale, moreOrLessEquals(2.0));
+
+      // Test minScale clamping
+      final g3 = await tester.startGesture(center - const Offset(200, 0));
+      final g4 = await tester.startGesture(center + const Offset(200, 0));
+      await g3.moveBy(const Offset(190, 0)); // Very large zoom-out
+      await g4.moveBy(const Offset(-190, 0));
+      await tester.pump();
+
+      expect(controller.scale, moreOrLessEquals(0.5));
+
+      await g3.up();
+      await g4.up();
+      await tester.pumpAndSettle();
+      expect(controller.scale, moreOrLessEquals(0.5));
 
       scrollController.dispose();
     });
