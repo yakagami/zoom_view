@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 
@@ -161,13 +163,33 @@ class ZoomListView extends StatefulWidget {
   final ListView child;
   final double minScale;
   final double maxScale;
+
+  /// If true, enables double tap dragging to zoom.
   final bool doubleTapDrag;
+
+  /// If true, enables double tap to zoom using the [gestureHandler] or a default one.
+  final bool doubleTapZoom;
+
+  /// Callback invoked any time the scale of the [ZoomView] changes.
+  final ValueChanged<double>? onScaleChanged;
+
+  /// Optional controller. If not provided, one is created internally.
+  final ZoomViewController? zoomViewController;
+
+  /// Optional gesture handler. If [doubleTapZoom] is true and this is null,
+  /// a default handler is created zooming to min(maxScale, 3.0).
+  final ZoomViewGestureHandler? gestureHandler;
+
   const ZoomListView({
     super.key,
     required this.child,
     this.minScale = 1.0,
     this.maxScale = 4.0,
     this.doubleTapDrag = false,
+    this.doubleTapZoom = true,
+    this.onScaleChanged,
+    this.zoomViewController,
+    this.gestureHandler,
   });
 
   @override
@@ -175,6 +197,9 @@ class ZoomListView extends StatefulWidget {
 }
 
 class _ZoomListViewState extends State<ZoomListView> {
+  late ZoomViewController _controller;
+  ZoomViewGestureHandler? _handler;
+
   @override
   void initState() {
     if (widget.child.controller == null) {
@@ -183,6 +208,34 @@ class _ZoomListViewState extends State<ZoomListView> {
       );
     }
     super.initState();
+    _controller = widget.zoomViewController ?? ZoomViewController();
+    _updateHandler();
+  }
+
+  @override
+  void didUpdateWidget(ZoomListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.zoomViewController != oldWidget.zoomViewController) {
+      _controller = widget.zoomViewController ?? ZoomViewController();
+    }
+    if (widget.doubleTapZoom != oldWidget.doubleTapZoom ||
+        widget.maxScale != oldWidget.maxScale ||
+        widget.gestureHandler != oldWidget.gestureHandler) {
+      _updateHandler();
+    }
+  }
+
+  void _updateHandler() {
+    if (widget.gestureHandler != null) {
+      _handler = widget.gestureHandler;
+    } else if (widget.doubleTapZoom) {
+      _handler = ZoomViewGestureHandler(
+        controller: _controller,
+        zoomLevels: [min(widget.maxScale, 3.0), 1.0],
+      );
+    } else {
+      _handler = null;
+    }
   }
 
   @override
@@ -192,6 +245,10 @@ class _ZoomListViewState extends State<ZoomListView> {
       scrollAxis: widget.child.scrollDirection,
       maxScale: widget.maxScale,
       minScale: widget.minScale,
+      doubleTapDrag: widget.doubleTapDrag,
+      zoomViewController: _controller,
+      onDoubleTap: _handler?.onDoubleTap,
+      onScaleChanged: widget.onScaleChanged,
       child: widget.child,
     );
   }
