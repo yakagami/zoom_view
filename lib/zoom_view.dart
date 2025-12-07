@@ -391,6 +391,7 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onScaleStart: (ScaleStartDetails details) {
+              _localFocalPoint = details.localFocalPoint;
               _masterAnimationController.stop();
               _trackPadState = details.kind == PointerDeviceKind.trackpad
                   ? TrackPadState.waiting
@@ -402,8 +403,6 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
                 );
                 _verticalTouchHandler.handleDragStart(dragDetails);
                 _horizontalTouchHandler.handleDragStart(dragDetails);
-              } else {
-                _localFocalPoint = details.localFocalPoint;
               }
             },
             onScaleUpdate: (ScaleUpdateDetails details) {
@@ -531,7 +530,6 @@ class _ZoomViewState extends State<ZoomView> with SingleTickerProviderStateMixin
             onDoubleTap: widget.onDoubleTap == null
                 ? null
                 : () {
-                    _dragMode = DragMode.pan;
                     widget.onDoubleTap!(_tapDownDetails);
                   },
             child: Column(
