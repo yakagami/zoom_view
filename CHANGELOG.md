@@ -21,3 +21,9 @@ Added double tap and drag to zoom, onScaleChanged and onScaleEnd callbacks, adde
 ## 1.0.1
 
 Remove stray outdated comment in readme
+
+## 1.0.2
+
+Fix gesture stuck as pan after doubleTap
+
+Expose more features to zoomlist wrapper
